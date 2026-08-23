@@ -1,24 +1,16 @@
 package vn.unlimit.vpngate.activities
 
 import android.annotation.SuppressLint
-import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
-import androidx.activity.result.ActivityResultLauncher
-import androidx.activity.result.IntentSenderRequest
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
-import com.google.android.play.core.appupdate.AppUpdateManagerFactory
-import com.google.android.play.core.appupdate.AppUpdateOptions
-import com.google.android.play.core.install.model.AppUpdateType
-import com.google.android.play.core.install.model.UpdateAvailability
 import vn.unlimit.vpngate.App
 import vn.unlimit.vpngate.activities.paid.ActivateActivity
 import vn.unlimit.vpngate.activities.paid.LoginActivity
@@ -26,7 +18,6 @@ import vn.unlimit.vpngate.activities.paid.PaidServerActivity
 import vn.unlimit.vpngate.activities.paid.ResetPassActivity
 import vn.unlimit.vpngate.databinding.ActivitySplashBinding
 import vn.unlimit.vpngate.provider.PaidServerProvider
-import vn.unlimit.vpngate.utils.AppOpenManager
 import vn.unlimit.vpngate.utils.PaidServerUtil
 import java.util.regex.Pattern
 
@@ -38,15 +29,7 @@ class SplashActivity : AppCompatActivity() {
         private const val PASS_RESET_URL_REGEX = "/user/password-reset/(\\w{20})"
     }
 
-    private var activityResultLauncher: ActivityResultLauncher<IntentSenderRequest>? = null
     private lateinit var binding: ActivitySplashBinding
-
-    override fun onDestroy() {
-        super.onDestroy()
-        AppOpenManager.splashActivity = null
-        activityResultLauncher?.unregister()
-        activityResultLauncher = null
-    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -60,59 +43,11 @@ class SplashActivity : AppCompatActivity() {
             windowInsets
         }
         ViewCompat.requestApplyInsets(binding.root)
-        AppOpenManager.splashActivity = this
-        activityResultLauncher = registerForActivityResult(
-            ActivityResultContracts.StartIntentSenderForResult()
-        ) { result ->
-            when (val resultCode = result.resultCode) {
-                Activity.RESULT_OK -> {
-                    Log.v(TAG, "Update flow completed!")
-                }
-                Activity.RESULT_CANCELED -> {
-                    Log.v(TAG, "User cancelled Update flow!")
-                    checkAppUpdateAndStartActivity()
-                }
-                else -> {
-                    Log.v(TAG, "Update flow failed with resultCode:$resultCode")
-                    checkAppUpdateAndStartActivity()
-                }
-            }
-        }
         checkDynamicLink()
     }
 
     private fun checkAppUpdateAndStartActivity() {
-        try {
-            // Creates instance of the manager.
-            val appUpdateManager = AppUpdateManagerFactory.create(this)
-
-            // Returns an intent object that you use to check for an update.
-            val appUpdateInfoTask = appUpdateManager.appUpdateInfo
-
-            // Checks that the platform will allow the specified type of update.
-            appUpdateInfoTask.addOnSuccessListener { appUpdateInfo ->
-                if (appUpdateInfo.updateAvailability() == UpdateAvailability.UPDATE_AVAILABLE
-                    // For a flexible update, use AppUpdateType.FLEXIBLE
-                    && appUpdateInfo.isUpdateTypeAllowed(AppUpdateType.IMMEDIATE)
-                    && activityResultLauncher != null
-                ) {
-                    appUpdateManager.startUpdateFlowForResult(
-                        appUpdateInfo,
-                        activityResultLauncher!!,
-                        AppUpdateOptions.newBuilder(AppUpdateType.IMMEDIATE).build()
-                    )
-                } else {
-                    startStartUpActivity(100)
-                }
-            }
-            appUpdateInfoTask.addOnFailureListener { e ->
-                Log.e(TAG, "Update check failure", e)
-                startStartUpActivity()
-            }
-        } catch (ex: Exception) {
-            Log.e(TAG, "Update check get exception", ex)
-            startStartUpActivity()
-        }
+        startStartUpActivity()
     }
 
     private fun checkAppUpdateAndStartActivityWithDelay(delay: Long = 2000) {
@@ -122,9 +57,6 @@ class SplashActivity : AppCompatActivity() {
     }
 
     fun startStartUpActivity(delay: Long = 100) {
-        if (AppOpenManager.isShowingAd) {
-            return
-        }
         val paidServerUtil: PaidServerUtil = App.instance!!.paidServerUtil!!
         val actIntent: Intent =
             if (paidServerUtil.getStartUpScreen() == PaidServerUtil.StartUpScreen.PAID_SERVER) {

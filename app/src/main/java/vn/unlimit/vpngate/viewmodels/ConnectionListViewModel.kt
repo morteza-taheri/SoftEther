@@ -4,7 +4,6 @@ import android.app.Application
 import android.util.Log
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
-import com.google.firebase.remoteconfig.FirebaseRemoteConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -12,6 +11,7 @@ import vn.unlimit.vpngate.App
 import vn.unlimit.vpngate.api.VPNGateApiService
 import vn.unlimit.vpngate.models.VPNGateConnection
 import vn.unlimit.vpngate.models.VPNGateConnectionList
+import vn.unlimit.vpngate.utils.AppConfig
 import vn.unlimit.vpngate.utils.DataUtil
 import java.io.BufferedReader
 import java.io.IOException
@@ -76,7 +76,7 @@ class ConnectionListViewModel(application: Application) : BaseViewModel(applicat
                 val version = if (!dataUtil.hasAds()) "pro" else null
                 val url =
                     if (dataUtil.getBooleanSetting(DataUtil.INCLUDE_UDP_SERVER, true)) {
-                        FirebaseRemoteConfig.getInstance().getString("vpn_udp_api_v2")
+                        AppConfig.getString("vpn_udp_api_v2")
                     } else {
                         dataUtil.baseUrl + "/api/iphone/"
                     }

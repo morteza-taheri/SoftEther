@@ -7,7 +7,6 @@ import android.util.Log
 import android.widget.Toast
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.MutableLiveData
-import com.google.firebase.remoteconfig.FirebaseRemoteConfig
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -17,6 +16,7 @@ import retrofit2.converter.scalars.ScalarsConverterFactory
 import vn.unlimit.vpngate.App
 import vn.unlimit.vpngate.R
 import vn.unlimit.vpngate.activities.paid.LoginActivity
+import vn.unlimit.vpngate.utils.AppConfig
 import vn.unlimit.vpngate.utils.PaidServerUtil
 import java.net.HttpURLConnection
 
@@ -56,8 +56,7 @@ open class BaseViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     var retrofit: Retrofit = Retrofit.Builder().baseUrl(
-        FirebaseRemoteConfig.getInstance()
-            .getString(App.getResourceString(R.string.cfg_paid_server_api_base_url))
+        AppConfig.getString("vpn_paid_server_api")
     )
         .client(httpClientBuilder.build())
         .addConverterFactory(ScalarsConverterFactory.create())

@@ -3,13 +3,11 @@ package vn.unlimit.vpngate.utils
 import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
-import com.google.firebase.remoteconfig.FirebaseRemoteConfig
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.google.gson.stream.JsonReader
 import com.google.gson.stream.JsonWriter
 import vn.unlimit.vpngate.BuildConfig
-import vn.unlimit.vpngate.R
 import vn.unlimit.vpngate.models.PaidServer
 import vn.unlimit.vpngate.models.User
 import java.io.File
@@ -62,10 +60,9 @@ class PaidServerUtil(context: Context) {
     }
 
     /**
-     * Get session header name from remote config
+     * Get session header name from config
      */
-    fun getSessionHeaderName(): String = FirebaseRemoteConfig.getInstance()
-        .getString(mContext.getString(R.string.cfg_paid_server_session_header_key))
+    fun getSessionHeaderName(): String = AppConfig.getString("vpn_header_session_name")
 
     /**
      * Set user logged in information after login or login

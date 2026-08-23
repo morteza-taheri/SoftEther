@@ -2,21 +2,16 @@ package vn.unlimit.vpngate.utils
 
 import android.content.Context
 import android.content.SharedPreferences
-import android.content.pm.PackageManager
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.Build
 import android.util.Log
-import com.google.android.gms.tasks.Task
 import com.google.gson.reflect.TypeToken
-import com.google.firebase.remoteconfig.FirebaseRemoteConfig
-import com.google.firebase.remoteconfig.FirebaseRemoteConfigSettings
 import com.google.gson.Gson
 import com.google.gson.stream.JsonReader
 import com.google.gson.stream.JsonWriter
 import vn.unlimit.vpngate.App
 import vn.unlimit.vpngate.BuildConfig
-import vn.unlimit.vpngate.R
 import vn.unlimit.vpngate.models.Cache
 import vn.unlimit.vpngate.models.VPNGateConnection
 import vn.unlimit.vpngate.models.VPNGateConnectionList
@@ -45,13 +40,6 @@ class DataUtil(context: Context?) {
                 Context.MODE_PRIVATE
             )
             gson = Gson()
-            val mFirebaseRemoteConfig = FirebaseRemoteConfig.getInstance()
-            val configSettings = FirebaseRemoteConfigSettings.Builder()
-                .setMinimumFetchIntervalInSeconds((if (BuildConfig.DEBUG || !this.isAcceptedPrivacyPolicy) 0 else 3600).toLong())
-                .build()
-            mFirebaseRemoteConfig.setDefaultsAsync(R.xml.remote_config_defaults)
-            mFirebaseRemoteConfig.setConfigSettingsAsync(configSettings)
-                .addOnCompleteListener { _: Task<Void?>? -> mFirebaseRemoteConfig.fetchAndActivate() }
         } catch (e: NullPointerException) {
             e.printStackTrace()
         }
@@ -222,29 +210,9 @@ class DataUtil(context: Context?) {
     }
 
     fun hasAds(): Boolean {
-        try {
-            return this.isAcceptedPrivacyPolicy && (BuildConfig.FLAVOR == "free") && (adMobId != null)
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+        // Ads have been fully removed. This always returns false.
         return false
     }
-
-    private val adMobId: String?
-        get() {
-            try {
-                val app = mContext!!.packageManager.getApplicationInfo(
-                    mContext!!.packageName, PackageManager.GET_META_DATA
-                )
-                val bundle = app.metaData
-                if (bundle != null) {
-                    return bundle.getString("com.google.android.gms.ads.APPLICATION_ID")
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Got exception when get admobId", e)
-            }
-            return null
-        }
 
     fun hasProInstalled(): Boolean {
         try {
@@ -272,8 +240,7 @@ class DataUtil(context: Context?) {
         get() {
             try {
                 if (sharedPreferencesSetting!!.getBoolean(USE_ALTERNATIVE_SERVER, false)) {
-                    return FirebaseRemoteConfig.getInstance()
-                        .getString(mContext!!.getString(R.string.alternative_api_cfg_key))
+                    return AppConfig.getString("vpn_alternative_api")
                 }
             } catch (e: Exception) {
                 e.printStackTrace()

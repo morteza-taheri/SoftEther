@@ -38,13 +38,6 @@ import androidx.core.view.updateLayoutParams
 import androidx.core.view.updatePadding
 import androidx.preference.PreferenceManager
 import com.bumptech.glide.Glide
-import com.google.android.libraries.ads.mobile.sdk.banner.AdView
-import com.google.android.libraries.ads.mobile.sdk.banner.BannerAdEventCallback
-import com.google.android.libraries.ads.mobile.sdk.common.AdRequest
-import com.google.android.libraries.ads.mobile.sdk.common.LoadAdError
-import com.google.android.libraries.ads.mobile.sdk.interstitial.InterstitialAd
-import com.google.firebase.analytics.FirebaseAnalytics
-import com.google.firebase.remoteconfig.FirebaseRemoteConfig
 import de.blinkt.openvpn.VpnProfile
 import de.blinkt.openvpn.core.ConfigParser
 import de.blinkt.openvpn.core.ConfigParser.ConfigParseError
@@ -71,6 +64,7 @@ import vn.unlimit.vpngate.dialog.MessageDialog
 import vn.unlimit.vpngate.dialog.VpnProtocolSelectionDialog
 import vn.unlimit.vpngate.models.VPNGateConnection
 import vn.unlimit.vpngate.provider.BaseProvider
+import vn.unlimit.vpngate.utils.AppConfig
 import vn.unlimit.vpngate.utils.DataUtil
 import vn.unlimit.vpngate.utils.Ipv6Ula
 import vn.unlimit.vpngate.utils.NotificationUtil
@@ -100,16 +94,12 @@ class DetailActivity : AppCompatActivity(), View.OnClickListener, VpnStatus.Stat
     private lateinit var dataUtil: DataUtil
     private var mVpnGateConnection: VPNGateConnection? = null
     private lateinit var vpnProfile: VpnProfile
-    private var mInterstitialAd: InterstitialAd? = null
-    private var adViewBellow: AdView? = null
     private lateinit var prefs: SharedPreferences
     private lateinit var listener: OnSharedPreferenceChangeListener
     private var isConnecting = false
     private var isAuthFailed = false
-    private var isShowAds = false
     private var isSSTPConnectOrDisconnecting = false
     private var isSSTPConnected = false
-    private var isFullScreenAdLoaded = false
     private lateinit var binding: ActivityDetailBinding
     private lateinit var excludeAppsManager: vn.unlimit.vpngate.utils.ExcludeAppsManager
     private var isSoftEtherConnected = false
@@ -119,8 +109,6 @@ class DetailActivity : AppCompatActivity(), View.OnClickListener, VpnStatus.Stat
     private val disconnectCooldownMS = 1000L // 1 second cooldown after disconnect
     private var pendingSoftEtherUseTcp: Boolean = true // Track pending SoftEther connection protocol
     private var notificationPermissionRequested = false // Track if we've already requested notification permission
-    private var adMobInitRunnable: Runnable? = null
-    private var interstitialInitRunnable: Runnable? = null
 
     private val softEtherStateListener = object : SoftEtherVpnService.StateListener {
         override fun onSoftEtherStateChanged(state: String, assignedIp: String) {
@@ -392,16 +380,6 @@ class DetailActivity : AppCompatActivity(), View.OnClickListener, VpnStatus.Stat
             if (lastMethod != "softether" && mVpnGateConnection != null) {
                 loadVpnProfile(dataUtil.getBooleanSetting(DataUtil.LAST_CONNECT_USE_UDP, false))
             }
-            try {
-                val params = Bundle()
-                params.putString("from", "Notification")
-                params.putString("ip", mVpnGateConnection?.ip)
-                params.putString("hostname", mVpnGateConnection?.calculateHostName)
-                params.putString("country", mVpnGateConnection?.countryLong)
-                FirebaseAnalytics.getInstance(applicationContext).logEvent("Open_Detail", params)
-            } catch (ex: NullPointerException) {
-                Log.e(TAG, "onCreate error", ex)
-            }
         } else {
             mVpnGateConnection = IntentCompat.getParcelableExtra(
                 intent, BaseProvider.PASS_DETAIL_VPN_CONNECTION,
@@ -497,89 +475,15 @@ class DetailActivity : AppCompatActivity(), View.OnClickListener, VpnStatus.Stat
         excludeAppsManager.updateExcludeAppsButtonText { text ->
             binding.btnExcludeApps.text = text
         }
-        initAdMob()
-        initInterstitialAd()
         initSSTP()
         bindData()
         VpnStatus.addStateListener(this)
         VpnStatus.addByteCountListener(this)
         binding.txtStatus.text = ""
-        binding.scrollView.viewTreeObserver.addOnGlobalLayoutListener(
-            object : android.view.ViewTreeObserver.OnGlobalLayoutListener {
-                override fun onGlobalLayout() {
-                    binding.scrollView.viewTreeObserver.removeOnGlobalLayoutListener(this)
-                    adjustAdPosition()
-                }
-            }
-        )
-    }
-
-    private fun initAdMob() {
-        if (!dataUtil.hasAds()) return
-        val runnable = Runnable {
-            if (isFinishing || isDestroyed) return@Runnable
-            try {
-                //Banner bellow
-                adViewBellow = AdView(applicationContext)
-                binding.adContainerFixed.addView(adViewBellow)
-                val bannerAdRequest = com.google.android.libraries.ads.mobile.sdk.banner.BannerAdRequest.Builder(
-                    getString(R.string.admob_banner_bellow_detail),
-                    com.google.android.libraries.ads.mobile.sdk.banner.AdSize.LARGE_BANNER
-                ).build()
-                adViewBellow!!.loadAd(bannerAdRequest, object : com.google.android.libraries.ads.mobile.sdk.common.AdLoadCallback<com.google.android.libraries.ads.mobile.sdk.banner.BannerAd> {
-                    override fun onAdLoaded(ad: com.google.android.libraries.ads.mobile.sdk.banner.BannerAd) {
-                        Log.d(TAG, "Banner ad loaded")
-                        runOnUiThread { adjustAdPosition() }
-                    }
-
-                    override fun onAdFailedToLoad(adError: LoadAdError) {
-                        runOnUiThread {
-                            adViewBellow?.visibility = View.GONE
-                            binding.adContainerFixed.visibility = View.GONE
-                            binding.adContainerInline.visibility = View.GONE
-                        }
-                    }
-                })
-            } catch (e: Exception) {
-                Log.e(TAG, "initAdMob error", e)
-            }
-        }
-        adMobInitRunnable = runnable
-        App.runWhenInitialized(runnable)
-    }
-
-    /**
-     * When scroll content fits viewport: move banner inline below Check IP (higher CTR).
-     * When content overflows: move banner to fixed position at screen bottom (always visible).
-     */
-    private fun adjustAdPosition() {
-        if (!dataUtil.hasAds() || adViewBellow == null) return
-        val scrollViewHeight = binding.scrollView.height
-        val contentHeight = binding.lnContentDetail.height
-        if (scrollViewHeight == 0 || contentHeight == 0) return
-        if (contentHeight <= scrollViewHeight) {
-            binding.adContainerFixed.visibility = View.GONE
-            binding.adContainerInline.visibility = View.VISIBLE
-            if (adViewBellow?.parent !== binding.adContainerInline) {
-                (adViewBellow?.parent as? ViewGroup)?.removeView(adViewBellow)
-                binding.adContainerInline.addView(adViewBellow)
-            }
-        } else {
-            binding.adContainerInline.visibility = View.GONE
-            binding.adContainerFixed.visibility = View.VISIBLE
-            if (adViewBellow?.parent !== binding.adContainerFixed) {
-                (adViewBellow?.parent as? ViewGroup)?.removeView(adViewBellow)
-                binding.adContainerFixed.addView(adViewBellow)
-            }
-            val adHeight = binding.adContainerFixed.height
-            binding.lnContentDetail.setPadding(0, 0, 0, adHeight)
-        }
     }
 
     public override fun onDestroy() {
         super.onDestroy()
-        adMobInitRunnable?.let { App.cancelPendingCallbacks(it) }
-        interstitialInitRunnable?.let { App.cancelPendingCallbacks(it) }
         VpnStatus.removeStateListener(this)
         VpnStatus.removeByteCountListener(this)
         prefs.unregisterOnSharedPreferenceChangeListener(listener)
@@ -655,12 +559,6 @@ class DetailActivity : AppCompatActivity(), View.OnClickListener, VpnStatus.Stat
                     ConnectionStatus.LEVEL_AUTH_FAILED -> {
                         isAuthFailed = true
                         binding.btnConnect.text = getString(R.string.retry_connect)
-                        val params = Bundle()
-                        params.putString("ip", mVpnGateConnection!!.ip)
-                        params.putString("hostname", mVpnGateConnection!!.calculateHostName)
-                        params.putString("country", mVpnGateConnection!!.countryLong)
-                        FirebaseAnalytics.getInstance(applicationContext)
-                            .logEvent("Connect_Error", params)
                         binding.btnConnect.background = ResourcesCompat.getDrawable(
                             resources, R.drawable.selector_primary_button, null
                         )
@@ -670,9 +568,6 @@ class DetailActivity : AppCompatActivity(), View.OnClickListener, VpnStatus.Stat
                     }
 
                     else -> binding.txtCheckIp.visibility = View.GONE
-                }
-                if (dataUtil.getBooleanSetting(DataUtil.USER_ALLOWED_VPN, false) && !isShowAds) {
-                    loadAds()
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "UpdateState error", e)
@@ -823,7 +718,6 @@ class DetailActivity : AppCompatActivity(), View.OnClickListener, VpnStatus.Stat
     }
 
     private fun handleImport(useUdp: Boolean) {
-        loadAds()
         val data = if (useUdp) {
             mVpnGateConnection!!.openVpnConfigDataUdp
         } else {
@@ -868,7 +762,6 @@ class DetailActivity : AppCompatActivity(), View.OnClickListener, VpnStatus.Stat
     }
 
     private fun handleConnection(useUdp: Boolean) {
-        loadAds()
         if (isSSTPConnected) {
             startVpnSSTPService(ACTION_VPN_DISCONNECT)
         }
@@ -878,24 +771,12 @@ class DetailActivity : AppCompatActivity(), View.OnClickListener, VpnStatus.Stat
         }
         if (checkStatus()) {
             stopVpn()
-            val params = Bundle()
-            params.putString("type", "replace current")
-            params.putString("hostname", mVpnGateConnection!!.calculateHostName)
-            params.putString("ip", mVpnGateConnection!!.ip)
-            params.putString("country", mVpnGateConnection!!.countryLong)
-            FirebaseAnalytics.getInstance(applicationContext).logEvent("Connect_VPN", params)
             binding.txtCheckIp.visibility = View.GONE
             Handler(Looper.getMainLooper()).postDelayed(
                 { prepareVpn(useUdp) },
                 if (needToStopSoftEther) 1000L else 500L
             )
         } else {
-            val params = Bundle()
-            params.putString("type", "connect new")
-            params.putString("hostname", mVpnGateConnection!!.calculateHostName)
-            params.putString("ip", mVpnGateConnection!!.ip)
-            params.putString("country", mVpnGateConnection!!.countryLong)
-            FirebaseAnalytics.getInstance(applicationContext).logEvent("Connect_VPN", params)
             if (needToStopSoftEther) {
                 // Wait for the SoftEther tunnel to fully tear down before starting OpenVPN
                 binding.txtCheckIp.visibility = View.GONE
@@ -940,13 +821,6 @@ class DetailActivity : AppCompatActivity(), View.OnClickListener, VpnStatus.Stat
                         // Disconnect active MS-SSTP connection
                         handleSSTPBtn()
                     } else if (checkStatus() && isCurrent) {
-                        val params = Bundle()
-                        params.putString("type", "disconnect current")
-                        params.putString("hostname", mVpnGateConnection!!.calculateHostName)
-                        params.putString("ip", mVpnGateConnection!!.ip)
-                        params.putString("country", mVpnGateConnection!!.countryLong)
-                        FirebaseAnalytics.getInstance(applicationContext)
-                            .logEvent("Disconnect_VPN", params)
                         stopVpn()
                         binding.btnConnect.background =
                             resources.getDrawable(R.drawable.selector_primary_button, resources.newTheme())
@@ -957,12 +831,6 @@ class DetailActivity : AppCompatActivity(), View.OnClickListener, VpnStatus.Stat
                         showVpnProtocolSelectionDialog()
                     }
                 } else {
-                    val params = Bundle()
-                    params.putString("type", "cancel connect to vpn")
-                    params.putString("hostname", mVpnGateConnection!!.calculateHostName)
-                    params.putString("ip", mVpnGateConnection!!.ip)
-                    params.putString("country", mVpnGateConnection!!.countryLong)
-                    FirebaseAnalytics.getInstance(applicationContext).logEvent("Cancel_VPN", params)
                     // Check if it's a SoftEther connection being canceled
                     if (isSoftEtherConnecting) {
                         disconnectSoftEther()
@@ -979,26 +847,12 @@ class DetailActivity : AppCompatActivity(), View.OnClickListener, VpnStatus.Stat
                     isSoftEtherConnecting = false
                 }
             } else if (view == binding.txtCheckIp) {
-                val params = Bundle()
-                params.putString("type", "check ip click")
-                params.putString("hostname", mVpnGateConnection!!.calculateHostName)
-                params.putString("ip", mVpnGateConnection!!.ip)
-                params.putString("country", mVpnGateConnection!!.countryLong)
-                FirebaseAnalytics.getInstance(applicationContext).logEvent("Click_Check_IP", params)
                 val browserIntent = Intent(
                     Intent.ACTION_VIEW,
-                    FirebaseRemoteConfig.getInstance().getString("vpn_check_ip_url").toUri()
+                    AppConfig.getString("vpn_check_ip_url").toUri()
                 )
                 startActivity(browserIntent)
             } else if (view == binding.btnL2tpConnect) {
-                val params = Bundle()
-                params.putString("type", "connect via L2TP")
-                params.putString("hostname", mVpnGateConnection!!.calculateHostName)
-                params.putString("ip", mVpnGateConnection!!.ip)
-                params.putString("country", mVpnGateConnection!!.countryLong)
-                FirebaseAnalytics.getInstance(applicationContext)
-                    .logEvent("Connect_Via_L2TP", params)
-                loadAds()
                 val l2tpIntent = Intent(this, L2TPConnectActivity::class.java)
                 l2tpIntent.putExtra(BaseProvider.PASS_DETAIL_VPN_CONNECTION, mVpnGateConnection)
                 startActivity(l2tpIntent)
@@ -1086,7 +940,6 @@ class DetailActivity : AppCompatActivity(), View.OnClickListener, VpnStatus.Stat
         )
         binding.btnConnect.setText(R.string.cancel)
         binding.txtStatus.setText(R.string.sstp_connecting)
-        loadAds()
         if (needToStopSoftEther) {
             // Wait for the SoftEther tunnel to fully tear down before starting SSTP
             Handler(mainLooper).postDelayed({
@@ -1145,12 +998,10 @@ class DetailActivity : AppCompatActivity(), View.OnClickListener, VpnStatus.Stat
             Handler(mainLooper).postDelayed({ this.connectSSTPVPN() }, 100)
         } else if (!isSSTPConnected && !isConnecting) {
             params.putString("type", "connect via MS-SSTP")
-            FirebaseAnalytics.getInstance(applicationContext).logEvent("Connect_Via_SSTP", params)
             dataUtil.lastVPNConnection = mVpnGateConnection
             startSSTPVPN()
         } else {
             params.putString("type", "cancel MS-SSTP")
-            FirebaseAnalytics.getInstance(applicationContext).logEvent("Cancel_Via_SSTP", params)
             startVpnSSTPService(ACTION_VPN_DISCONNECT)
             isConnecting = false
             binding.btnConnect.background = ResourcesCompat.getDrawable(
@@ -1161,61 +1012,6 @@ class DetailActivity : AppCompatActivity(), View.OnClickListener, VpnStatus.Stat
         }
     }
 
-    private fun initInterstitialAd() {
-        if (!dataUtil.hasAds()) return
-        val runnable = Runnable {
-            if (isFinishing || isDestroyed) return@Runnable
-            try {
-                val adRequest = AdRequest.Builder(getString(R.string.admob_full_screen_detail)).build()
-                InterstitialAd.load(
-                    adRequest,
-                    object : com.google.android.libraries.ads.mobile.sdk.common.AdLoadCallback<InterstitialAd> {
-                        override fun onAdLoaded(interstitialAd: InterstitialAd) {
-                            isFullScreenAdLoaded = true
-                            mInterstitialAd = interstitialAd
-                            Log.e(TAG, "Full screen ads loaded")
-                        }
-
-                        override fun onAdFailedToLoad(adError: LoadAdError) {
-                            isFullScreenAdLoaded = false
-                            mInterstitialAd = null
-                            Log.e(TAG, String.format("Full screen ads failed to load %s", adError))
-                        }
-                    })
-            } catch (e: Exception) {
-                Log.e(TAG, "initInterstitialAd error", e)
-            }
-        }
-        interstitialInitRunnable = runnable
-        App.runWhenInitialized(runnable)
-    }
-
-    private fun loadAds() {
-        try {
-            if (dataUtil.hasAds() && App.isMobileAdsInitialized && dataUtil.getBooleanSetting(
-                    DataUtil.USER_ALLOWED_VPN,
-                    false
-                ) && isFullScreenAdLoaded && mInterstitialAd != null
-            ) {
-                isShowAds = true
-                isFullScreenAdLoaded = false
-                mInterstitialAd!!.adEventCallback = object : com.google.android.libraries.ads.mobile.sdk.interstitial.InterstitialAdEventCallback {
-                    override fun onAdDismissedFullScreenContent() {
-                        mInterstitialAd = null
-                        isShowAds = false
-                    }
-                    override fun onAdFailedToShowFullScreenContent(error: com.google.android.libraries.ads.mobile.sdk.common.FullScreenContentError) {
-                        mInterstitialAd = null
-                        isShowAds = false
-                    }
-                }
-                mInterstitialAd!!.show(this)
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "loadAds error", e)
-        }
-    }
-
     private fun sendConnectVPN() {
         val intent = Intent(BaseProvider.ACTION.ACTION_CONNECT_VPN)
         sendBroadcast(intent)
@@ -1223,15 +1019,14 @@ class DetailActivity : AppCompatActivity(), View.OnClickListener, VpnStatus.Stat
 
     /**
      * Resolves the primary DNS to use based on user settings:
-     * 1. Block Ads → AdGuard primary DNS (from Firebase Remote Config)
+     * 1. Block Ads → AdGuard primary DNS
      * 2. Custom DNS → user-defined primary DNS
      * 3. Fallback → 8.8.8.8
      */
     private fun resolvePrimaryDns(): String {
         return when {
             dataUtil.getBooleanSetting(DataUtil.SETTING_BLOCK_ADS, false) ->
-                FirebaseRemoteConfig.getInstance()
-                    .getString(getString(R.string.dns_block_ads_primary_cfg_key))
+                AppConfig.getString("vpn_dns_block_ads_primary")
                     .ifEmpty { "8.8.8.8" }
             dataUtil.getBooleanSetting(DataUtil.USE_CUSTOM_DNS, false) ->
                 dataUtil.getStringSetting(DataUtil.CUSTOM_DNS_IP_1, "8.8.8.8") ?: "8.8.8.8"
@@ -1241,15 +1036,14 @@ class DetailActivity : AppCompatActivity(), View.OnClickListener, VpnStatus.Stat
 
     /**
      * Resolves the secondary DNS to use based on user settings:
-     * 1. Block Ads → AdGuard secondary DNS (from Firebase Remote Config)
+     * 1. Block Ads → AdGuard secondary DNS
      * 2. Custom DNS → user-defined secondary DNS (if set)
      * 3. Fallback → 8.8.4.4
      */
     private fun resolveSecondaryDns(): String {
         return when {
             dataUtil.getBooleanSetting(DataUtil.SETTING_BLOCK_ADS, false) ->
-                FirebaseRemoteConfig.getInstance()
-                    .getString(getString(R.string.dns_block_ads_alternative_cfg_key))
+                AppConfig.getString("vpn_dns_block_ads_alternative")
                     .ifEmpty { "8.8.4.4" }
             dataUtil.getBooleanSetting(DataUtil.USE_CUSTOM_DNS, false) ->
                 dataUtil.getStringSetting(DataUtil.CUSTOM_DNS_IP_2, "8.8.4.4")
@@ -1500,18 +1294,6 @@ class DetailActivity : AppCompatActivity(), View.OnClickListener, VpnStatus.Stat
         } catch (e: Exception) {
             Log.e(TAG, "Error sending disconnect intent", e)
         }
-        
-        // Log analytics
-        try {
-            val params = Bundle()
-            params.putString("type", "disconnect")
-            params.putString("protocol", if (dataUtil.getBooleanSetting(DataUtil.LAST_CONNECT_SOFTETHER_USE_UDP, false)) "UDP" else "TCP")
-            params.putString("hostname", mVpnGateConnection?.calculateHostName ?: "")
-            params.putString("ip", mVpnGateConnection?.ip ?: "")
-            FirebaseAnalytics.getInstance(applicationContext).logEvent("Disconnect_Via_SoftEther", params)
-        } catch (e: Exception) {
-            Log.e(TAG, "Error logging analytics", e)
-        }
     }
 
     /**
@@ -1600,19 +1382,6 @@ class DetailActivity : AppCompatActivity(), View.OnClickListener, VpnStatus.Stat
             }
             if (checkStatus()) {
                 stopVpn()
-            }
-
-            // Log analytics
-            try {
-                val params = Bundle()
-                params.putString("type", "connect via SoftEther")
-                params.putString("protocol", if (useTcp) "TCP" else "UDP")
-                params.putString("hostname", mVpnGateConnection!!.calculateHostName)
-                params.putString("ip", mVpnGateConnection!!.ip)
-                params.putString("country", mVpnGateConnection!!.countryLong)
-                FirebaseAnalytics.getInstance(applicationContext).logEvent("Connect_Via_SoftEther", params)
-            } catch (e: Exception) {
-                Log.e(TAG, "Error logging analytics", e)
             }
 
             // Create ConnectionConfig for SoftEther using the same mName format as OpenVPN
