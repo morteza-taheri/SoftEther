@@ -1210,29 +1210,17 @@ class DetailActivity : AppCompatActivity(), View.OnClickListener, VpnStatus.Stat
             return
         }
 
-        // Count available protocols using same visibility logic as the dialog
+        // Skip the dialog only when the server exposes an OpenVPN config with no
+        // explicit port info at all (the port is embedded in the .ovpn file itself)
+        // and nothing else — in that case the protocol dialog has no options to show.
+        // Any server with at least one port-based option gets the dialog as before.
         val conn = mVpnGateConnection!!
-        val hasOpenVpnTcp = conn.tcpPort > 0 && conn.openVpnConfigData != null
-        val hasOpenVpnUdp = conn.udpPort > 0
-        val hasSoftEtherTcp = conn.seTcpPort > 0
-        val hasSoftEtherUdp = conn.seUdpPort > 0
-        val hasSstp = conn.isSSTPSupport() && conn.tcpPort > 0
-        // Config with no explicit port info — port is embedded in the .ovpn file itself
-        val hasOpenVpnConfigOnly = conn.openVpnConfigData != null && !hasOpenVpnTcp && !hasOpenVpnUdp
-
-        val availableCount = listOf(hasOpenVpnTcp, hasOpenVpnUdp, hasSoftEtherTcp, hasSoftEtherUdp, hasSstp, hasOpenVpnConfigOnly).count { it }
-
-        // Skip the dialog and connect directly when only one protocol is available
-        if (availableCount == 1) {
-            Log.d(TAG, "Only one protocol available, connecting directly")
-            when {
-                hasOpenVpnConfigOnly -> handleConnection(false) // config-only: port embedded in .ovpn
-                hasOpenVpnTcp -> handleConnection(false)
-                hasOpenVpnUdp -> handleConnection(true)
-                hasSoftEtherTcp -> startSoftEtherConnection(true)
-                hasSoftEtherUdp -> startSoftEtherConnection(false)
-                hasSstp -> handleSSTPBtn()
-            }
+        val hasOpenVpnConfigOnly = conn.openVpnConfigData != null
+                && conn.tcpPort <= 0 && conn.udpPort <= 0
+                && conn.seTcpPort <= 0 && conn.seUdpPort <= 0
+        if (hasOpenVpnConfigOnly) {
+            Log.d(TAG, "Only embedded-port OpenVPN config available, connecting directly")
+            handleConnection(false) // config-only: port embedded in .ovpn
             return
         }
         
