@@ -122,7 +122,16 @@
     <string name="unknown_state">Unknown</string>
     <string name="state_user_vpn_permission" translatable="false">Waiting for user permission to use VPN API</string>
     <string name="check_ip">Check your current public IP</string>
-    <string name="about_html">%1$s is an application allow connection to free VPN server by volunteer around the world from VPN Gate open source project. More information about VPN Gate project in link bellow.</string>
+    <string name="about_html">%1$s is a free, open-source, multi-protocol VPN client for Android with a native SoftEther VPN implementation. It also supports OpenVPN, MS-SSTP and L2TP/IPsec, connecting to free community servers from the VPN Gate project as well as private servers.</string>
+    <string name="about_development">Development</string>
+    <string name="about_author_label">Developed and maintained by</string>
+    <string name="about_author_name" translatable="false">Morteza Taheri</string>
+    <string name="about_author_email" translatable="false">morteza.taheri@live.com</string>
+    <string name="about_author_github" translatable="false">https://github.com/morteza-taheri</string>
+    <string name="about_source_title">Source code</string>
+    <string name="about_source_description">This project is open source and released under the GPLv3 license. Contributions, bug reports and pull requests are welcome on GitHub.</string>
+    <string name="about_source_link" translatable="false">https://github.com/morteza-taheri/SoftEther</string>
+    <string name="about_copyright" translatable="false">© 2026 Morteza Taheri</string>
     <string name="license_html">%1$s is under GPLv3 LICENSE. It means if you use this project or a part of this project in your project it must be open source. This project uses other open source projects as libraries, detail below.</string>
     <string name="vpn_gate_link" translatable="false">http://www.vpngate.net/en/about_overview.aspx</string>
     <string name="version">Version:</string>

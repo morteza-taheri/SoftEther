@@ -1,121 +1,216 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:orientation="vertical"
-    android:paddingLeft="7dp"
-    android:paddingRight="7dp"
-    android:paddingTop="20dp">
-
-    <TextView
-        style="@style/label"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:gravity="center"
-        android:text="@string/app_name" />
+    android:layout_height="match_parent">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:gravity="center">
+        android:orientation="vertical"
+        android:paddingLeft="16dp"
+        android:paddingTop="16dp"
+        android:paddingRight="16dp"
+        android:paddingBottom="32dp">
+
+        <ImageView
+            android:layout_width="88dp"
+            android:layout_height="88dp"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="12dp"
+            android:contentDescription="@string/app_icon"
+            android:src="@mipmap/ic_launcher" />
 
         <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/version" />
-
-        <TextView
-            android:id="@+id/txt_version_name"
             style="@style/label"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginLeft="7dp"
-            android:text="1.0-dev" />
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="12dp"
+            android:text="@string/app_name"
+            android:textSize="20sp" />
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="4dp"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/version" />
+
+            <TextView
+                android:id="@+id/txt_version_name"
+                style="@style/label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="7dp"
+                tools:text="2.2.6" />
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="4dp"
+            android:text="@string/about_copyright"
+            android:textColor="@color/colorTextSecondary" />
+
+        <TextView
+            style="@style/AppTheme.Heading"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:text="@string/about" />
+
+        <TextView
+            android:id="@+id/txt_about_html"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/about_html" />
+
+        <TextView
+            android:id="@+id/txt_vpn_gate_link"
+            style="@style/AppTheme.Link"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/vpn_gate_link" />
+
+        <TextView
+            style="@style/AppTheme.Heading"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:text="@string/about_development" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/about_author_label" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="@string/about_author_name"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/txt_author_email"
+            style="@style/AppTheme.Link"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="@string/about_author_email" />
+
+        <TextView
+            android:id="@+id/txt_author_github"
+            style="@style/AppTheme.Link"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="@string/about_author_github" />
+
+        <TextView
+            style="@style/AppTheme.SubHeading"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/about_source_title" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="@string/about_source_description" />
+
+        <TextView
+            android:id="@+id/txt_source_link"
+            style="@style/AppTheme.Link"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="@string/about_source_link" />
+
+        <TextView
+            style="@style/AppTheme.Heading"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:text="@string/license" />
+
+        <TextView
+            android:id="@+id/txt_license_html"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/license_html" />
+
+        <TextView
+            style="@style/AppTheme.SubHeading"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/license_label" />
+
+        <TextView
+            android:id="@+id/txt_github_link"
+            style="@style/AppTheme.Link"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="@string/license_link" />
+
+        <TextView
+            style="@style/AppTheme.SubHeading"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/license_glide_label" />
+
+        <TextView
+            android:id="@+id/txt_github_link_glide"
+            style="@style/AppTheme.Link"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="@string/license_glide_link" />
+
+        <TextView
+            style="@style/AppTheme.SubHeading"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/license_sstp_label" />
+
+        <TextView
+            android:id="@+id/txt_github_link_sstp"
+            style="@style/AppTheme.Link"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="@string/license_sstp_link" />
+
+        <TextView
+            style="@style/AppTheme.SubHeading"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/license_softether_label" />
+
+        <TextView
+            android:id="@+id/txt_github_link_softether"
+            style="@style/AppTheme.Link"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="@string/license_softether_link" />
     </LinearLayout>
-
-    <TextView
-        style="@style/AppTheme.Heading"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/about" />
-
-    <TextView
-        android:id="@+id/txt_about_html"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="10dp"
-        android:text="@string/about_html" />
-
-    <TextView
-        android:id="@+id/txt_vpn_gate_link"
-        style="@style/AppTheme.Link"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/vpn_gate_link" />
-
-    <TextView
-        style="@style/AppTheme.Heading"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="10dp"
-        android:text="@string/license" />
-
-    <TextView
-        android:id="@+id/txt_license_html"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="10dp"
-        android:text="@string/license_html" />
-    <TextView
-        style="@style/AppTheme.SubHeading"
-        android:layout_marginTop="10dp"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/license_label" />
-    <TextView
-        android:layout_marginTop="5dp"
-        android:id="@+id/txt_github_link"
-        style="@style/AppTheme.Link"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/license_link" />
-    <TextView
-        style="@style/AppTheme.SubHeading"
-        android:layout_marginTop="10dp"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/license_glide_label" />
-    <TextView
-        android:layout_marginTop="5dp"
-        android:id="@+id/txt_github_link_glide"
-        style="@style/AppTheme.Link"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/license_glide_link" />
-    <TextView
-        style="@style/AppTheme.SubHeading"
-        android:layout_marginTop="10dp"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/license_sstp_label" />
-    <TextView
-        android:layout_marginTop="5dp"
-        android:id="@+id/txt_github_link_sstp"
-        style="@style/AppTheme.Link"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/license_sstp_link" />
-    <TextView
-        style="@style/AppTheme.SubHeading"
-        android:layout_marginTop="10dp"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/license_softether_label" />
-    <TextView
-        android:layout_marginTop="5dp"
-        android:id="@+id/txt_github_link_softether"
-        style="@style/AppTheme.Link"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/license_softether_link" />
-</LinearLayout>
+</ScrollView>

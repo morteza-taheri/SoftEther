@@ -115,7 +115,11 @@
     <string name="pauseVPN">Tạm dừng VPN</string>
     <string name="resumevpn">Tiếp tục VPN</string>
     <string name="check_ip">Kiểm tra IP hiện tại</string>
-    <string name="about_html">%1$s là ứng dụng cho phép kết nối đến các máy chủ VPN miễn phí cung cấp bởi tình nguyện viện trên khắp thế giới từ dự án nguồn mở VPN Gate. Thông tin về dự án VPN Gate có ở liên kết bên dưới.</string>
+    <string name="about_html">%1$s là ứng dụng khách VPN đa giao thức, miễn phí và mã nguồn mở cho Android với triển khai SoftEther VPN gốc. Ứng dụng cũng hỗ trợ OpenVPN, MS-SSTP và L2TP/IPsec, kết nối đến các máy chủ cộng đồng miễn phí từ dự án VPN Gate cũng như các máy chủ riêng.</string>
+    <string name="about_development">Phát triển</string>
+    <string name="about_author_label">Được phát triển và bảo trì bởi</string>
+    <string name="about_source_title">Mã nguồn</string>
+    <string name="about_source_description">Dự án này là mã nguồn mở và được phát hành theo giấy phép GPLv3. Mọi đóng góp, báo cáo lỗi và pull request đều được chào đón trên GitHub.</string>
     <string name="license_html">%1$s được phát hành theo giấy phép GPLv3. Nghĩa là nếu bạn sử dụng dự án này hoặc một phần của dự án trong dự án của bạn thì dự án đó phải là mã nguồn mở. Dự án này sử dụng các dự án mã nguồn mở khác làm thư viện, chi tiết bên dưới.</string>
     <string name="version">Phiên bản:</string>
     <string name="license">Giấy phép</string>

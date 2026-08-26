@@ -13,13 +13,11 @@ import vn.unlimit.vpngate.BuildConfig
 import vn.unlimit.vpngate.R
 import vn.unlimit.vpngate.databinding.FragmentAboutBinding
 
-/**
- * Created by hoangnd on 2/6/2018.
- */
 class AboutFragment : Fragment(), View.OnClickListener {
     companion object {
         const val TAG = "AboutFragment"
     }
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -31,6 +29,12 @@ class AboutFragment : Fragment(), View.OnClickListener {
             String.format(getString(R.string.about_html), getString(R.string.app_name))
         binding.txtVpnGateLink.text = getString(R.string.vpn_gate_link)
         binding.txtVpnGateLink.setOnClickListener(this)
+        binding.txtAuthorEmail.text = getString(R.string.about_author_email)
+        binding.txtAuthorEmail.setOnClickListener(this)
+        binding.txtAuthorGithub.text = getString(R.string.about_author_github)
+        binding.txtAuthorGithub.setOnClickListener(this)
+        binding.txtSourceLink.text = getString(R.string.about_source_link)
+        binding.txtSourceLink.setOnClickListener(this)
         binding.txtLicenseHtml.text =
             String.format(getString(R.string.license_html), getString(R.string.app_name))
         binding.txtGithubLink.text = getString(R.string.license_link)
@@ -43,7 +47,8 @@ class AboutFragment : Fragment(), View.OnClickListener {
 
     override fun onClick(view: View) {
         if (view is TextView) {
-            openUrl(view.text.toString())
+            val target = view.text.toString()
+            openUrl(if (target.contains("@")) "mailto:$target" else target)
         }
     }
 
