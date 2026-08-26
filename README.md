@@ -1,20 +1,20 @@
-# VPN Gate Connector
-[![Android CI](https://github.com/hoang-rio/vpngate-connector/actions/workflows/android-ci.yml/badge.svg)](https://github.com/hoang-rio/vpngate-connector/actions/workflows/android-ci.yml)
+# SoftEther VPN Client for Android
 
-## A VPN Gate Client for android
+A multi-protocol VPN client for Android with a native **SoftEther VPN** implementation — no third-party VPN app required. Also supports **OpenVPN**, **MS-SSTP**, and **L2TP/IPsec** across both free community servers and private paid servers.
 
-Supports multiple VPN protocols — **SoftEther VPN** (native implementation, no third-party client required), **OpenVPN**, **MS-SSTP**, and **L2TP/IPsec** (Android 12 and below only) — across both free and paid VPN Gate servers.
+> Built and maintained by **Morteza Taheri**
 
-**Available in Google Play Store**
+## Features
 
-<img src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png" style="width: 300px;">
+- 🔒 Native SoftEther VPN protocol over SSL/TLS (TCP + UDP)
+- 🌐 OpenVPN support via integrated library
+- 🔗 MS-SSTP over HTTPS/TLS
+- 📱 Clean Material Design UI with server list, filtering, sorting & search
+- 🚫 Per-app VPN exclusion (split tunneling)
+- ⚡ Real-time connection speed & traffic statistics
+- 🔐 Multiple authentication methods
 
-
-Free Version: https://play.google.com/store/apps/details?id=vn.unlimit.vpngate
-
-Pro Version: https://play.google.com/store/apps/details?id=vn.unlimit.vpngatepro
-
-# Protocol Support
+## Protocol Support
 
 | Protocol | Transport | Free Server | Paid Server |
 |----------|-----------|:-----------:|:-----------:|
@@ -26,9 +26,8 @@ Pro Version: https://play.google.com/store/apps/details?id=vn.unlimit.vpngatepro
 | L2TP/IPsec | — | ✅ ⚠️ | ✅ ⚠️ |
 
 ### SoftEther VPN
-Native SoftEther VPN protocol implementation via the [SoftEther-Android-Module](https://github.com/hoang-rio/SoftEther-Android-Module) submodule (no third-party VPN client required).
 
-Supports TCP and UDP (RUDP V1 + V2) transports. V2 uses ChaCha20-Poly1305 AEAD with automatic fallback to V1 on servers that don't support it.
+Native SoftEther VPN protocol implementation built into the app as a native module. Supports TCP and UDP (RUDP V1 + V2) transports. V2 uses ChaCha20-Poly1305 AEAD encryption with automatic fallback to V1 on servers that don't support it.
 
 **Authentication methods:**
 
@@ -38,28 +37,50 @@ Supports TCP and UDP (RUDP V1 + V2) transports. V2 uses ChaCha20-Poly1305 AEAD w
 | Hashed Password | ✅ | — |
 | Plain Password (RADIUS) | — | ✅ |
 
-- Free servers authenticate as `vpn`/`vpn` against the `vpngate` virtual hub
-- Paid servers authenticate with user credentials against the `VPNGatePaid` virtual hub via RADIUS
-
 ### OpenVPN
-Powered by [OpenVPN for Android](https://github.com/schwabe/ics-openvpn). Supports TCP and UDP transports with automatic or user-selected protocol.
+
+Integrated OpenVPN client library supporting TCP and UDP transports with automatic or user-selected protocol selection.
 
 ### MS-SSTP
-Powered by [Open SSTP Client](https://github.com/kittoku/Open-SSTP-Client). Connects over HTTPS/TLS using the standard Microsoft SSTP protocol with username/password authentication.
+
+Connects over HTTPS/TLS using the standard Microsoft SSTP protocol with username/password authentication.
 
 ### L2TP/IPsec
-Uses the Android OS built-in L2TP/IPsec client. Available on both free and paid servers.
+
+Uses the Android OS built-in L2TP/IPsec client.
 
 > ⚠️ **Deprecated by Android**: Google deprecated the built-in L2TP/IPsec VPN in **Android 12** (API 31) and fully removed it in **Android 13** (API 33). This protocol only works on devices running **Android 12 or below**. For Android 13+, please use SoftEther VPN, OpenVPN, or MS-SSTP instead.
 
-# LICENSE
+## Project Structure
 
-This project is under GPLv3 LICENSE. It mean if you use this project or a part of this project in your project it must be open source.
+```
+├── app/                  # Main application module
+├── SoftEtherClient/      # Native SoftEther VPN protocol implementation (C/C++)
+├── sstpClient/           # MS-SSTP protocol client (Kotlin)
+├── vpnLib/               # OpenVPN integration library
+└── server-setup/         # Server configuration scripts
+```
 
-This project use another open source project as library detail bellow.
-* [**OpenVPN for Android**](https://github.com/schwabe/ics-openvpn) under GPLv2 LICENSE (https://github.com/schwabe/ics-openvpn/blob/master/doc/LICENSE.txt)
-* [**glide**](https://github.com/bumptech/glide) under Apache License, Version 2.0 (https://github.com/bumptech/glide/blob/master/LICENSE)
-* [**Open SSTP Client for Android**](https://github.com/kittoku/Open-SSTP-Client) under MIT License (https://github.com/kittoku/Open-SSTP-Client/blob/main/LICENSE)
-* [**SoftEther-Android-Module**](https://github.com/hoang-rio/SoftEther-Android-Module) under Apache License, Version 2.0 (https://github.com/hoang-rio/SoftEther-Android-Module/blob/main/LICENSE)
+## Building
 
-Made with ♥ and a lot of coffee by [hoangrio](https://github.com/hoang-rio)
+```bash
+./gradlew assembleFreeDebug     # Free flavor (debug)
+./gradlew assembleProDebug      # Pro flavor (debug)
+./gradlew bundleFreeRelease     # Free flavor (release AAB)
+```
+
+Requires:
+- JDK 17+
+- Android SDK (compileSdk 37)
+- Android NDK (for SoftEther native module)
+
+## License
+
+This project is licensed under **GPLv3**. If you use this project or any part of it in your own project, it must also be open-sourced under the same license.
+
+This project uses the following open-source libraries:
+
+* [**OpenVPN for Android**](https://github.com/schwabe/ics-openvpn) — GPLv2
+* [**Glide**](https://github.com/bumptech/glide) — Apache License 2.0
+* [**Open SSTP Client for Android**](https://github.com/kittoku/Open-SSTP-Client) — MIT License
+* [**Bouncy Castle**](https://www.bouncycastle.org/) — MIT License
