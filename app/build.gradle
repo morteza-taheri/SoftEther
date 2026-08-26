@@ -68,6 +68,17 @@ android {
         }
     }
     androidComponents {
+        // Keep only the proRelease variant on non-CI machines so the IDE's
+        // Build Variants panel shows a single entry. CI (CI env var set)
+        // keeps all variants because the workflow builds freeRelease too.
+        if (System.getenv("CI") == null) {
+            beforeVariants(selector().withBuildType("debug")) { variant ->
+                variant.enabled = false
+            }
+            beforeVariants(selector().withFlavor("tier", "free")) { variant ->
+                variant.enabled = false
+            }
+        }
         onVariants(selector().withBuildType("debug")) { variant ->
             def keystoreFile = rootProject.file("keyStore/release.jks")
             // When the release keystore is not present locally, debug builds
