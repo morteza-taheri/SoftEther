@@ -24,17 +24,37 @@ android {
         }
     }
     signingConfigs {
-        free {
-            storeFile file("../keyStore/release.jks")
-            storePassword String.valueOf(System.getenv("SIGN_KEY_PASSWORD"))
-            keyAlias "key0"
-            keyPassword String.valueOf(System.getenv("SIGN_KEY_PASSWORD"))
-        }
-        pro {
-            storeFile file("../keyStore/release.jks")
-            storePassword String.valueOf(System.getenv("SIGN_KEY_PASSWORD"))
-            keyAlias "key_pro"
-            keyPassword String.valueOf(System.getenv("SIGN_KEY_PASSWORD"))
+        // When the release keystore is not present locally (it is blackbox-
+        // encrypted and only deployed on CI), fall back to the default debug
+        // keystore so every variant can build without secrets.
+        def keystoreFile = file("../keyStore/release.jks")
+        if (keystoreFile.exists()) {
+            free {
+                storeFile keystoreFile
+                storePassword String.valueOf(System.getenv("SIGN_KEY_PASSWORD"))
+                keyAlias "key0"
+                keyPassword String.valueOf(System.getenv("SIGN_KEY_PASSWORD"))
+            }
+            pro {
+                storeFile keystoreFile
+                storePassword String.valueOf(System.getenv("SIGN_KEY_PASSWORD"))
+                keyAlias "key_pro"
+                keyPassword String.valueOf(System.getenv("SIGN_KEY_PASSWORD"))
+            }
+        } else {
+            def debugKeystore = file("${System.getProperty('user.home')}/.android/debug.keystore")
+            free {
+                storeFile debugKeystore
+                storePassword "android"
+                keyAlias "androiddebugkey"
+                keyPassword "android"
+            }
+            pro {
+                storeFile debugKeystore
+                storePassword "android"
+                keyAlias "androiddebugkey"
+                keyPassword "android"
+            }
         }
     }
     flavorDimensions = ["tier"]
