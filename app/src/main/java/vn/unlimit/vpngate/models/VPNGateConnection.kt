@@ -133,7 +133,48 @@ class VPNGateConnection : Parcelable {
     }
 
     fun setOpenVpnConfigDataString(openVpnConfigData: String) {
-        this.openVpnConfigData = decodeBase64(openVpnConfigData)
+        this.openVpnConfigData = decodeBase64(openVpnConfigData)?.takeIf { it.isNotBlank() }
+    }
+
+    /**
+     * The public vpngate.net feed carries no per-protocol port columns, only the
+     * OpenVPN config blob. Derive what the blob tells us so the protocol
+     * selection UI is not empty:
+     * - "proto tcp" / "proto udp" selects the transport
+     * - "remote <host> <port>" carries the port
+     * A SoftEther VPN server serves its native protocol on the same TCP
+     * listener as OpenVPN over TCP (protocol auto-detection), so the TCP port
+     * from the blob also becomes the SoftEther TCP port.
+     * Explicit port columns from an extended feed are never overridden.
+     */
+    private fun derivePortsFromOpenVpnConfig() {
+        val config = openVpnConfigData ?: return
+        var proto: String? = null
+        var remotePort = 0
+        for (rawLine in config.lines()) {
+            val line = rawLine.trim()
+            if (line.isEmpty() || line.startsWith("#") || line.startsWith(";")) {
+                continue
+            }
+            if (proto == null && line.startsWith("proto ")) {
+                proto = line.removePrefix("proto ").trim()
+            }
+            if (remotePort == 0 && line.startsWith("remote ")) {
+                val parts = line.split(Regex("\\s+"))
+                if (parts.size >= 3) {
+                    remotePort = parts[2].toIntOrNull() ?: 0
+                }
+            }
+        }
+        if (proto == null || remotePort <= 0) {
+            return
+        }
+        if (proto.startsWith("tcp")) {
+            if (tcpPort == 0) tcpPort = remotePort
+            if (seTcpPort == 0) seTcpPort = remotePort
+        } else if (proto.startsWith("udp")) {
+            if (udpPort == 0) udpPort = remotePort
+        }
     }
 
     val openVpnConfigDataUdp: String?
@@ -340,6 +381,7 @@ class VPNGateConnection : Parcelable {
                     vpnGateConnection.seTcpPort = 0
                     vpnGateConnection.seUdpPort = 0
                 }
+                vpnGateConnection.derivePortsFromOpenVpnConfig()
                 return vpnGateConnection
             } catch (_: Exception) {
                 return null
