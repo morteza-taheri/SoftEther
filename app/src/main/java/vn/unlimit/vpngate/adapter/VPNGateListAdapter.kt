@@ -111,3 +111,75 @@ class VPNGateListAdapter(private val mContext: Context) :
             itemView.setOnLongClickListener(this)
             itemView.setOnClickListener(this)
         }
+fun bindViewHolder(position: Int) {
+            try {
+                val vpnGateConnection = _list.get(position)
+                Glide.with(mContext)
+                    .load(instance!!.dataUtil!!.baseUrl + "/images/flags/" + vpnGateConnection.countryShort + ".png")
+                    .placeholder(R.color.colorOverlay)
+                    .error(R.color.colorOverlay)
+                    .into(imgFlag)
+                txtCountry.text = vpnGateConnection.countryLong
+                txtIp.text = vpnGateConnection.ip
+                txtHostname.text = vpnGateConnection.calculateHostName
+                txtScore.text = vpnGateConnection.scoreAsString
+                txtUptime.text = vpnGateConnection.getCalculateUpTime(mContext)
+                txtSpeed.text = vpnGateConnection.calculateSpeed
+                txtPing.text = vpnGateConnection.pingAsString
+                txtSession.text = vpnGateConnection.numVpnSessionAsString
+                txtOwner.text = vpnGateConnection.operator
+                val dataUtil = instance!!.dataUtil
+                val isIncludeUdp = dataUtil!!.getBooleanSetting(DataUtil.INCLUDE_UDP_SERVER, true)
+                if (!isIncludeUdp || vpnGateConnection.tcpPort == 0) {
+                    lnTCP.visibility = View.GONE
+                } else {
+                    lnTCP.visibility = View.VISIBLE
+                    txtTCP.text = vpnGateConnection.tcpPort.toString()
+                }
+                if (!isIncludeUdp || vpnGateConnection.udpPort == 0) {
+                    lnUDP.visibility = View.GONE
+                } else {
+                    lnUDP.visibility = View.VISIBLE
+                    txtUDP.text = vpnGateConnection.udpPort.toString()
+                }
+                lnL2TP.visibility =
+                    if (vpnGateConnection.isL2TPSupport()) View.VISIBLE else View.GONE
+                lnSSTP.visibility =
+                    if (vpnGateConnection.isSSTPSupport()) View.VISIBLE else View.GONE
+            } catch (e: Exception) {
+                Log.e(TAG, "bindViewHolder error", e)
+                e.printStackTrace()
+            }
+        }
+
+        override fun onLongClick(view: View): Boolean {
+            try {
+                if (onItemLongClickListener != null) {
+                    val clickedPost = adapterPosition
+                    val item = _list.get(clickedPost)
+                    onItemLongClickListener!!.onItemLongClick(item, clickedPost)
+                    return true
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+            return false
+        }
+
+        override fun onClick(view: View) {
+            try {
+                if (onItemClickListener != null) {
+                    val clickedPost = adapterPosition
+                    val item = _list.get(clickedPost)
+                    onItemClickListener!!.onItemClick(item, clickedPost)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    companion object {
+        private const val TAG = "VPNGateListAdapter"
+    }
+}

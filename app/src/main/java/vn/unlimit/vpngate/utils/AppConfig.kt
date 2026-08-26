@@ -1,18 +1,14 @@
 package vn.unlimit.vpngate.utils
 
 /**
- * Local configuration values that replace Firebase Remote Config.
+ * Local configuration values for the app.
  *
- * The project no longer depends on any Google service. The previous Firebase
- * Remote Config keys (see `res/xml/remote_config_defaults.xml`) are resolved
- * to hard-coded defaults here so the app keeps working offline without any
- * network/cloud dependency.
+ * These values are used instead of a cloud/remote config service so the app
+ * works fully offline without any external dependency.
  */
 object AppConfig {
-
     /**
-     * Returns the value for the given Remote Config key, backed by the default
-     * map from `remote_config_defaults.xml`.
+     * Returns the string value for the given key.
      */
     fun getString(key: String): String {
         return when (key) {
@@ -37,9 +33,7 @@ object AppConfig {
 
     fun getBoolean(key: String): Boolean {
         return when (key) {
-            "vpn_admob_primary" -> true
             "invite_paid_server" -> true
-            "vpn_show_native_ad" -> true
             "vpn_import_open_vpn" -> false
             else -> false
         }

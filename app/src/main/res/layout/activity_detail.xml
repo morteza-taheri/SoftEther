@@ -548,22 +548,8 @@
                         android:textStyle="bold"
                         android:visibility="gone" />
 
-                    <RelativeLayout
-                        android:id="@+id/ad_container_inline"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_gravity="center_horizontal"
-                        android:gravity="center"
-                        android:visibility="gone" />
                 </LinearLayout>
             </LinearLayout>
         </vn.unlimit.vpngate.customview.SafeNestedScrollView>
-
-        <RelativeLayout
-            android:id="@+id/ad_container_fixed"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_alignParentBottom="true"
-            android:gravity="center" />
     </RelativeLayout>
 </androidx.drawerlayout.widget.DrawerLayout>

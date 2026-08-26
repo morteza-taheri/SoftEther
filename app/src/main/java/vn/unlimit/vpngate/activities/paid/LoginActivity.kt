@@ -16,7 +16,6 @@ import androidx.core.view.updateLayoutParams
 import androidx.core.view.updatePadding
 import androidx.lifecycle.ViewModelProvider
 import com.bumptech.glide.Glide
-import com.google.firebase.analytics.FirebaseAnalytics
 import vn.unlimit.vpngate.App
 import vn.unlimit.vpngate.R
 import vn.unlimit.vpngate.activities.MainActivity
@@ -115,19 +114,11 @@ class LoginActivity : EdgeToEdgeActivity(), View.OnClickListener {
                             getString(R.string.login_failed)
                         }
                     Toast.makeText(this, errorMsg, Toast.LENGTH_LONG).show()
-                    val params = Bundle()
-                    params.putString("username", binding.txtUsername.text.toString())
-                    params.putString("errorMsg", errorMsg)
-                    FirebaseAnalytics.getInstance(this).logEvent("Paid_Server_Login_Failed", params)
                 } else {
                     paidServerUtil.setStringSetting(
                         PaidServerUtil.SAVED_VPN_PW,
                         binding.txtPassword.text.toString()
                     )
-                    val params = Bundle()
-                    params.putString("username", binding.txtUsername.text.toString())
-                    FirebaseAnalytics.getInstance(this)
-                        .logEvent("Paid_Server_Login_Success", params)
                     // Go to paid home screen
                     val paidIntent = Intent(this, PaidServerActivity::class.java)
                     paidIntent.putExtra(BaseProvider.FROM_LOGIN, true)

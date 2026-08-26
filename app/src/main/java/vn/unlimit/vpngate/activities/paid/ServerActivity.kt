@@ -39,8 +39,6 @@ import androidx.core.view.updateLayoutParams
 import androidx.core.view.updatePadding
 import androidx.preference.PreferenceManager
 import com.bumptech.glide.Glide
-import com.google.firebase.analytics.FirebaseAnalytics
-import com.google.firebase.remoteconfig.FirebaseRemoteConfig
 import de.blinkt.openvpn.VpnProfile
 import de.blinkt.openvpn.core.ConfigParser
 import de.blinkt.openvpn.core.ConfigParser.ConfigParseError
@@ -64,6 +62,7 @@ import vn.unlimit.vpngate.dialog.ConnectionUseProtocol
 import vn.unlimit.vpngate.dialog.VpnProtocolSelectionDialog
 import vn.unlimit.vpngate.models.PaidServer
 import vn.unlimit.vpngate.provider.BaseProvider
+import vn.unlimit.vpngate.utils.AppConfig
 import vn.unlimit.vpngate.utils.DataUtil
 import vn.unlimit.vpngate.utils.Ipv6Ula
 import vn.unlimit.vpngate.utils.PaidServerUtil
@@ -456,24 +455,12 @@ class ServerActivity : EdgeToEdgeActivity(), View.OnClickListener, VpnStatus.Sta
         }
         if (checkStatus()) {
             stopVpn()
-            val params = Bundle()
-            params.putString("type", "replace current")
-            params.putString("domain", mPaidServer!!.serverDomain)
-            params.putString("ip", mPaidServer!!.serverIp)
-            params.putString("country", mPaidServer!!.serverLocation)
-            FirebaseAnalytics.getInstance(applicationContext).logEvent("Paid_Connect_VPN", params)
             binding.txtCheckIp.visibility = View.GONE
             Handler(Looper.getMainLooper()).postDelayed(
                 { prepareVpn(useUdp) },
                 if (needToStopSoftEther) 1000L else 500L
             )
         } else {
-            val params = Bundle()
-            params.putString("type", "connect new")
-            params.putString("domain", mPaidServer!!.serverDomain)
-            params.putString("ip", mPaidServer!!.serverIp)
-            params.putString("country", mPaidServer!!.serverLocation)
-            FirebaseAnalytics.getInstance(applicationContext).logEvent("Paid_Connect_VPN", params)
             if (needToStopSoftEther) {
                 // Wait for the SoftEther tunnel to fully tear down before starting OpenVPN
                 binding.txtCheckIp.visibility = View.GONE
@@ -786,26 +773,15 @@ class ServerActivity : EdgeToEdgeActivity(), View.OnClickListener, VpnStatus.Sta
 
     private fun handleSSTPBtn() {
         isSSTPConnectOrDisconnecting = true
-        val params = Bundle()
-        params.putString("domain", mPaidServer!!.serverDomain)
-        params.putString("ip", mPaidServer!!.serverIp)
-        params.putString("country", mPaidServer!!.serverLocation)
         val sstpHostName: String? = prefs.getString(OscPrefKey.HOME_HOSTNAME.toString(), "")
         if (isSSTPConnected && sstpHostName != mPaidServer!!.serverDomain) {
             // Connected but not must disconnect old first
             startVpnSSTPService(DetailActivity.ACTION_VPN_DISCONNECT)
-            params.putString("type", "replace connect via MS-SSTP")
             binding.txtCheckIp.visibility = View.GONE
             Handler(mainLooper).postDelayed({ connectSSTPVPN() }, 100)
         } else if (!isSSTPConnected && !isConnecting) {
-            params.putString("type", "connect via MS-SSTP")
-            FirebaseAnalytics.getInstance(applicationContext)
-                .logEvent("Paid_Connect_Via_SSTP", params)
             startSSTPVPN()
         } else {
-            params.putString("type", "cancel MS-SSTP")
-            FirebaseAnalytics.getInstance(applicationContext)
-                .logEvent("Paid_Cancel_Via_SSTP", params)
             startVpnSSTPService(DetailActivity.ACTION_VPN_DISCONNECT)
             isConnecting = false
             binding.btnConnect.background = ResourcesCompat.getDrawable(
@@ -976,15 +952,14 @@ class ServerActivity : EdgeToEdgeActivity(), View.OnClickListener, VpnStatus.Sta
 
     /**
      * Resolves the primary DNS to use based on user settings:
-     * 1. Block Ads → AdGuard primary DNS (from Firebase Remote Config)
+     * 1. Block Ads → AdGuard primary DNS
      * 2. Custom DNS → user-defined primary DNS (if set)
      * 3. Fallback → 8.8.8.8
      */
     private fun resolvePrimaryDns(): String {
         return when {
             dataUtil.getBooleanSetting(DataUtil.SETTING_BLOCK_ADS, false) ->
-                FirebaseRemoteConfig.getInstance()
-                    .getString(getString(R.string.dns_block_ads_primary_cfg_key))
+                AppConfig.getString("vpn_dns_block_ads_primary")
                     .ifEmpty { "8.8.8.8" }
             dataUtil.getBooleanSetting(DataUtil.USE_CUSTOM_DNS, false) ->
                 dataUtil.getStringSetting(DataUtil.CUSTOM_DNS_IP_1, "8.8.8.8") ?: "8.8.8.8"
@@ -994,15 +969,14 @@ class ServerActivity : EdgeToEdgeActivity(), View.OnClickListener, VpnStatus.Sta
 
     /**
      * Resolves the secondary DNS to use based on user settings:
-     * 1. Block Ads → AdGuard secondary DNS (from Firebase Remote Config)
+     * 1. Block Ads → AdGuard secondary DNS
      * 2. Custom DNS → user-defined secondary DNS (if set)
      * 3. Fallback → 8.8.4.4
      */
     private fun resolveSecondaryDns(): String {
         return when {
             dataUtil.getBooleanSetting(DataUtil.SETTING_BLOCK_ADS, false) ->
-                FirebaseRemoteConfig.getInstance()
-                    .getString(getString(R.string.dns_block_ads_alternative_cfg_key))
+                AppConfig.getString("vpn_dns_block_ads_alternative")
                     .ifEmpty { "8.8.4.4" }
             dataUtil.getBooleanSetting(DataUtil.USE_CUSTOM_DNS, false) ->
                 dataUtil.getStringSetting(DataUtil.CUSTOM_DNS_IP_2, "8.8.4.4")
@@ -1135,13 +1109,6 @@ class ServerActivity : EdgeToEdgeActivity(), View.OnClickListener, VpnStatus.Sta
             } else if (isSSTPConnected) {
                 handleSSTPBtn()
             } else if (checkStatus() && isCurrent()) {
-                val params = Bundle()
-                params.putString("type", "disconnect current")
-                params.putString("domain", mPaidServer!!.serverDomain)
-                params.putString("ip", mPaidServer!!.serverIp)
-                params.putString("country", mPaidServer!!.serverLocation)
-                FirebaseAnalytics.getInstance(applicationContext)
-                    .logEvent("Paid_Disconnect_VPN", params)
                 stopVpn()
                 binding.btnConnect.background =
                     ResourcesCompat.getDrawable(resources, R.drawable.selector_primary_button, null)
@@ -1151,12 +1118,6 @@ class ServerActivity : EdgeToEdgeActivity(), View.OnClickListener, VpnStatus.Sta
                 showVpnProtocolSelectionDialog()
             }
         } else {
-            val params = Bundle()
-            params.putString("type", "cancel connect to vpn")
-            params.putString("domain", mPaidServer!!.serverDomain)
-            params.putString("ip", mPaidServer!!.serverIp)
-            params.putString("country", mPaidServer!!.serverLocation)
-            FirebaseAnalytics.getInstance(applicationContext).logEvent("Paid_Cancel_VPN", params)
             if (isSoftEtherConnecting) {
                 disconnectSoftEther()
             } else if (isSSTPConnectOrDisconnecting) {
@@ -1185,16 +1146,9 @@ class ServerActivity : EdgeToEdgeActivity(), View.OnClickListener, VpnStatus.Sta
 
             binding.btnConnect -> connectVPNServer()
             binding.txtCheckIp -> {
-                val params = Bundle()
-                params.putString("type", "check ip click")
-                params.putString("domain", mPaidServer?.serverDomain)
-                params.putString("ip", mPaidServer?.serverIp)
-                params.putString("country", mPaidServer?.serverLocation)
-                FirebaseAnalytics.getInstance(applicationContext)
-                    .logEvent("Paid_Click_Check_IP", params)
                 val browserIntent = Intent(
                     Intent.ACTION_VIEW,
-                    FirebaseRemoteConfig.getInstance().getString("vpn_check_ip_url").toUri()
+                    AppConfig.getString("vpn_check_ip_url").toUri()
                 )
                 startActivity(browserIntent)
             }
@@ -1353,12 +1307,6 @@ class ServerActivity : EdgeToEdgeActivity(), View.OnClickListener, VpnStatus.Sta
                     ConnectionStatus.LEVEL_AUTH_FAILED -> {
                         isAuthFailed = true
                         binding.btnConnect.text = getString(R.string.retry_connect)
-                        val params = Bundle()
-                        params.putString("ip", mPaidServer?.serverIp)
-                        params.putString("domain", mPaidServer?.serverDomain)
-                        params.putString("country", mPaidServer?.serverLocation)
-                        FirebaseAnalytics.getInstance(applicationContext)
-                            .logEvent("Paid_Connect_Error", params)
                         binding.btnConnect.background = ResourcesCompat.getDrawable(
                             resources,
                             R.drawable.selector_paid_button,

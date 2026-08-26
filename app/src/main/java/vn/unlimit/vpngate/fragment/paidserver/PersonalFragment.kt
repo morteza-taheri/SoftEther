@@ -10,7 +10,6 @@ import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.fragment.findNavController
-import com.google.common.base.Strings
 import vn.unlimit.vpngate.R
 import vn.unlimit.vpngate.activities.MainActivity
 import vn.unlimit.vpngate.databinding.FragmentPersonalBinding
@@ -46,7 +45,8 @@ class PersonalFragment : Fragment(), View.OnClickListener {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         deviceViewModel = ViewModelProvider(this)[DeviceViewModel::class.java]
-        if (deviceViewModel!!.deviceInfo.value == null || Strings.isNullOrEmpty(deviceViewModel!!.deviceInfo.value?._id)) {
+        val deviceId = deviceViewModel!!.deviceInfo.value?._id
+        if (deviceId.isNullOrEmpty()) {
             binding.lnNotificationSetting.visibility = View.GONE
             view.findViewById<View>(R.id.line_notification_setting).visibility = View.GONE
         }

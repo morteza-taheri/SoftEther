@@ -176,23 +176,6 @@
     <string name="empty_search_result">No sever found with keyword \"%1$s\"</string>
     <string name="empty_filter_result">No sever found current filter</string>
     <string name="no_server_available">No servers available. Please pull to refresh.</string>
-    <!-- Admob -->
-    <string name="admob_app_id" translatable="false">ca-app-pub-3085232976681422~6517719190</string>
-    <string name="admob_full_screen_connect" translatable="false">ca-app-pub-3085232976681422/3982443196</string>
-    <string name="admob_banner_bottom_detail" translatable="false">ca-app-pub-3085232976681422/3173725771</string>
-    <string name="admob_banner_bottom_home" translatable="false">ca-app-pub-3085232976681422/5804237477</string>
-    <string name="admob_full_screen_status" translatable="false">ca-app-pub-3085232976681422/1038355322</string>
-    <string name="admob_banner_bellow_detail" translatable="false">ca-app-pub-3085232976681422/9538848174</string>
-    <string name="admob_full_screen_detail" translatable="false">ca-app-pub-3085232976681422/4760681369</string>
-    <string name="admob_banner_bottom_l2tp" translatable="false">ca-app-pub-3085232976681422/1423139298</string>
-    <string name="admob_open_app" translatable="false">ca-app-pub-3085232976681422/7891399166</string>
-    <string name="admob_native_unit_id" translatable="false">ca-app-pub-3085232976681422/8546099928</string>
-    <string name="cfg_show_native_ad" translatable="false">vpn_show_native_ad</string>
-    <string name="native_ad_label">Ad</string>
-    <!--Firebase remote config -->
-    <string name="dns_block_ads_primary_cfg_key" translatable="false">vpn_dns_block_ads_primary</string>
-    <string name="dns_block_ads_alternative_cfg_key" translatable="false">vpn_dns_block_ads_alternative</string>
-    <string name="alternative_api_cfg_key" translatable="false">vpn_alternative_api</string>
     <!-- Privacy policy -->
     <string name="privacy_policy_title">Privacy policy</string>
     <string name="btn_accept">Accept</string>

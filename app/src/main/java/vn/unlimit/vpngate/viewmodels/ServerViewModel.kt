@@ -1,11 +1,9 @@
 package vn.unlimit.vpngate.viewmodels
 
 import android.app.Application
-import android.os.Bundle
 import android.util.Log
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
-import com.google.firebase.analytics.FirebaseAnalytics
 import kotlinx.coroutines.launch
 import retrofit2.HttpException
 import vn.unlimit.vpngate.activities.paid.PaidServerActivity
@@ -49,14 +47,6 @@ class ServerViewModel(application: Application) : BaseViewModel(application) {
                 } catch (e: HttpException) {
                     Log.e(TAG, "Got HttpException when load server", e)
                     handleExpiresError(e.code(), activity)
-                    val params = Bundle()
-                    params.putString(
-                        "username",
-                        paidServerUtil.getUserInfo()?.username
-                    )
-                    params.putString("errorInfo", e.message)
-                    FirebaseAnalytics.getInstance(getApplication())
-                        .logEvent("Paid_Server_List_Server_Error", params)
                 } catch (e: Throwable) {
                     Log.e(TAG, "Got HttpException when load server", e)
                 } finally {

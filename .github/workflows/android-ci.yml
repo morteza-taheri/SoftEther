@@ -53,21 +53,6 @@ jobs:
       - name: Bundle Free Release AAB
         run: ./gradlew :app:bundleFreeRelease
 
-      - name: Distribute to Firebase
-        env:
-          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          FIREBASE_APP_ID: ${{ secrets.FIREBASE_FREE_APP_ID }}
-          COMMIT_MSG: ${{ github.event.head_commit.message || github.event.commits[0].message }}
-        run: |
-          echo "$FIREBASE_SERVICE_ACCOUNT" > service-account.json
-          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
-            TAG_NAME="${github.ref#refs/tags/}"
-            echo "Release: ${TAG_NAME}" > release-notes.txt
-          else
-            echo "Develop: ${COMMIT_MSG}" > release-notes.txt
-          fi
-          ./gradlew appDistributionUploadFreeRelease --serviceCredentialsFile=service-account.json --appId="$FIREBASE_APP_ID" --releaseNotesFile=release-notes.txt --testers="chiasenhac.us@gmail.com"
-
       - name: Upload Free AAB
         if: startsWith(github.ref, 'refs/tags/')
         uses: actions/upload-artifact@v7
@@ -109,22 +94,6 @@ jobs:
 
       - name: Assemble Pro Release APK
         run: ./gradlew assembleProRelease
-
-      - name: Distribute to Firebase
-        env:
-          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          FIREBASE_APP_ID: ${{ secrets.FIREBASE_PRO_APP_ID }}
-          COMMIT_MSG: ${{ github.event.head_commit.message || github.event.commits[0].message }}
-        run: |
-          echo "$FIREBASE_SERVICE_ACCOUNT" > service-account.json
-          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
-            TAG_NAME="${github.ref#refs/tags/}"
-            echo "Release: ${TAG_NAME}" > release-notes.txt
-          else
-            echo "Develop: ${COMMIT_MSG}" > release-notes.txt
-          fi
-          ./gradlew appDistributionUploadProRelease --serviceCredentialsFile=service-account.json --appId="$FIREBASE_APP_ID" --releaseNotesFile=release-notes.txt --testers="chiasenhac.us@gmail.com"
-
       - name: Bundle Pro Release AAB
         if: startsWith(github.ref, 'refs/tags/')
         run: ./gradlew :app:bundleProRelease

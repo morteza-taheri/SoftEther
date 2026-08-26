@@ -38,7 +38,6 @@
 -keepclassmembers enum vn.unlimit.vpngate.models.** {*;}
 # PaidServer Model
 -keep class vn.unlimit.vpngate.models.PaidServer {*;}
--keep class vn.unlimit.vpngate.models.PurchaseHistory {*;}
 -keep class vn.unlimit.vpngate.models.ConnectedSession {*;}
 -keep class vn.unlimit.vpngate.models.ConnectedSession$* {*;}
 -keep class vn.unlimit.vpngate.models.DeviceInfo {*;}

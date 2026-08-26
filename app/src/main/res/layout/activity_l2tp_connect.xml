@@ -63,7 +63,7 @@
             android:id="@+id/scrollView"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_above="@id/ad_container_l2tp"
+            android:layout_alignParentBottom="true"
             android:layout_below="@id/nav_detail">
 
             <LinearLayout
@@ -164,13 +164,5 @@
                     android:layout_marginBottom="30dp" />
             </LinearLayout>
         </vn.unlimit.vpngate.customview.SafeNestedScrollView>
-
-        <RelativeLayout
-            android:id="@+id/ad_container_l2tp"
-            android:layout_width="match_parent"
-            android:layout_height="100dp"
-            android:layout_alignParentBottom="true"
-            android:gravity="center_horizontal"
-            android:orientation="vertical" />
     </RelativeLayout>
 </androidx.drawerlayout.widget.DrawerLayout>

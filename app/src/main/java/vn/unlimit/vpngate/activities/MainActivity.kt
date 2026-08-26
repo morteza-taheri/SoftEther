@@ -36,17 +36,7 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.commit
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
-import com.google.android.libraries.ads.mobile.sdk.banner.AdView
-import com.google.android.libraries.ads.mobile.sdk.banner.BannerAdEventCallback
-import com.google.android.libraries.ads.mobile.sdk.banner.BannerAdRequest
-import com.google.android.libraries.ads.mobile.sdk.common.LoadAdError
 import com.google.android.material.navigation.NavigationView
-import com.google.android.ump.ConsentInformation
-import com.google.android.ump.ConsentRequestParameters
-import com.google.android.ump.FormError
-import com.google.android.ump.UserMessagingPlatform
-import com.google.firebase.analytics.FirebaseAnalytics
-import com.google.gson.Gson
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -74,11 +64,9 @@ import vn.unlimit.vpngate.utils.PaidServerUtil
 import kittoku.osc.preference.OscPrefKey
 import vn.unlimit.vpngate.viewmodels.ConnectionListViewModel
 import java.util.Objects
-import java.util.concurrent.atomic.AtomicBoolean
 
 class MainActivity : AppCompatActivity(), View.OnClickListener,
     NavigationView.OnNavigationItemSelectedListener {
-    private val isMobileAdsInitializeCalled = AtomicBoolean(false)
     var connectionListViewModel: ConnectionListViewModel? = null
     var isLoading: Boolean = false
     var doubleBackToExitPressedOnce: Boolean = false
@@ -94,7 +82,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener,
     var sortType: Int = VPNGateConnectionList.ORDER.ASC
         private set
     private var disallowLoadHome = false
-    private var adView: AdView? = null
     private var isInFront = false
     private lateinit var binding: ActivityMainBinding
     private val broadcastReceiver: BroadcastReceiver = object : BroadcastReceiver() {
@@ -122,7 +109,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener,
             }
         }
     }
-    private var consentInformation: ConsentInformation? = null
     private var paidServerUtil: PaidServerUtil? = null
 
     public override fun onSaveInstanceState(outState: Bundle) {
@@ -168,7 +154,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener,
         val initialFrameLeft = binding.frameContent.paddingLeft
         val initialFrameRight = binding.frameContent.paddingRight
         val initialFrameTopMargin = (binding.frameContent.layoutParams as RelativeLayout.LayoutParams).topMargin
-        val initialAdBottom = binding.adContainerHome.paddingBottom
         val initialNavBottom = binding.navMain.paddingBottom
         val drawerHeaderView = binding.navMain.getHeaderView(0)
         val initialDrawerHeaderHeight = drawerHeaderView.layoutParams.height
@@ -187,7 +172,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener,
             binding.frameContent.updateLayoutParams<RelativeLayout.LayoutParams> {
                 topMargin = initialFrameTopMargin + insets.top
             }
-            binding.adContainerHome.updatePadding(bottom = initialAdBottom + insets.bottom)
             binding.navMain.updatePadding(bottom = initialNavBottom + insets.bottom)
             drawerHeaderView.updateLayoutParams<ViewGroup.LayoutParams> {
                 height = initialDrawerHeaderHeight + insets.top
@@ -228,22 +212,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener,
         } catch (ex: Exception) {
             Log.e(TAG, "Got exception handle support action bar", ex)
         }
-        if (!dataUtil!!.hasAds()) {
-            hideAdContainer()
-            binding.navMain.menu.setGroupVisible(R.id.menu_top, false)
-        }
-
-        checkUMP()
-        if (consentInformation != null) {
-            if (BuildConfig.DEBUG && consentInformation!!.privacyOptionsRequirementStatus == ConsentInformation.PrivacyOptionsRequirementStatus.REQUIRED) {
-                consentInformation!!.reset()
-            }
-            if (consentInformation!!.canRequestAds()) {
-                initAdMob()
-            }
-        } else {
-            hideAdContainer()
-        }
+        binding.navMain.menu.setGroupVisible(R.id.menu_top, false)
         addBackPressedHandler()
         lifecycleScope.launch(Dispatchers.IO) {
             disallowLoadHome =
@@ -261,98 +230,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener,
         val isOpenVPNFreeConnected = dataUtil!!.lastVPNConnection != null
         val isSSTPFreeConnected = !sstpHostName.isNullOrEmpty() && !dataUtil!!.getBooleanSetting(DataUtil.IS_LAST_CONNECTED_PAID, false)
         binding.navMain.menu.findItem(R.id.nav_status).isVisible = isOpenVPNFreeConnected || isSSTPFreeConnected
-    }
-
-    private fun checkUMP() {
-        if (!dataUtil!!.hasAds()) {
-            return
-        }
-//        val debugSettings = ConsentDebugSettings.Builder(this)
-//            .addTestDeviceHashedId("5A08C90645CF1173979B5320A03D1195")
-//            .setDebugGeography(ConsentDebugSettings.DebugGeography.DEBUG_GEOGRAPHY_EEA)
-//            .build()
-        // Set tag for under age of consent. false means users are not under age
-        // of consent.
-        val params = ConsentRequestParameters.Builder()
-//            .setConsentDebugSettings(debugSettings)
-            .setTagForUnderAgeOfConsent(false)
-            .build()
-
-        consentInformation = UserMessagingPlatform.getConsentInformation(this)
-        consentInformation!!.requestConsentInfoUpdate(
-            this,
-            params,
-            {
-                UserMessagingPlatform.loadAndShowConsentFormIfRequired(
-                    this
-                ) { loadAndShowError: FormError? ->
-                    if (loadAndShowError != null) {
-                        // Consent gathering failed.
-                        Log.w(
-                            TAG, String.format(
-                                "%s: %s",
-                                loadAndShowError.errorCode,
-                                loadAndShowError.message
-                            )
-                        )
-                        if (loadAndShowError.errorCode == FormError.ErrorCode.INVALID_OPERATION) {
-                            initAdMob()
-                        }
-                    }
-                    if (consentInformation!!.canRequestAds()) {
-                        initAdMob()
-                    } else if (!isMobileAdsInitializeCalled.get()) {
-                        hideAdContainer()
-                    }
-                }
-            },
-            { requestConsentError: FormError ->
-                // Consent gathering failed.
-                Log.w(
-                    TAG, String.format(
-                        "%s: %s",
-                        requestConsentError.errorCode,
-                        requestConsentError.message
-                    )
-                )
-            })
-    }
-
-    private fun initAdMob() {
-        if (!dataUtil!!.hasAds()) return
-        App.runWhenInitialized {
-            try {
-                if (isMobileAdsInitializeCalled.getAndSet(true)) {
-                    return@runWhenInitialized
-                }
-                adView = AdView(applicationContext)
-                (findViewById<View>(R.id.ad_container_home) as RelativeLayout).addView(adView)
-                val bannerAdRequest = BannerAdRequest.Builder(resources.getString(R.string.admob_banner_bottom_home), com.google.android.libraries.ads.mobile.sdk.banner.AdSize.LARGE_BANNER).build()
-                adView!!.loadAd(bannerAdRequest, object : com.google.android.libraries.ads.mobile.sdk.common.AdLoadCallback<com.google.android.libraries.ads.mobile.sdk.banner.BannerAd> {
-                    override fun onAdLoaded(ad: com.google.android.libraries.ads.mobile.sdk.banner.BannerAd) {
-                        Log.d(TAG, "Banner ad loaded")
-                    }
-
-                    override fun onAdFailedToLoad(adError: LoadAdError) {
-                        runOnUiThread {
-                            adView!!.visibility = View.GONE
-                            hideAdContainer()
-                        }
-                        Log.e(TAG, adError.toString())
-                    }
-                })
-            } catch (e: Exception) {
-                Log.e(TAG, "Got exception when initAdMob", e)
-            }
-        }
-    }
-
-    private fun hideAdContainer() {
-        try {
-            binding.adContainerHome.visibility = View.GONE
-        } catch (e: Exception) {
-            Log.e(TAG, "Got exception when hideAdContainer", e)
-        }
     }
 
     /**
@@ -506,10 +383,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener,
                         HomeFragment::class.java.name
                     ) as HomeFragment?
                     if (currentFragment != null) {
-                        val params = Bundle()
-                        params.putString(FirebaseAnalytics.Param.SEARCH_TERM, newText)
-                        FirebaseAnalytics.getInstance(applicationContext)
-                            .logEvent(FirebaseAnalytics.Event.SEARCH, params)
                         currentFragment.filter(newText)
                         return true
                     }
@@ -561,14 +434,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener,
             sortBottomSheetDialog.setOnApplyClickListener(object :
                 SortBottomSheetDialog.OnApplyClickListener {
                 override fun onApplyClick(sortProperty: String?, sortType: Int) {
-                    if (dataUtil!!.hasAds()) {
-                        Toast.makeText(
-                            applicationContext,
-                            getText(R.string.feature_available_in_pro),
-                            Toast.LENGTH_LONG
-                        ).show()
-                        return
-                    }
                     this@MainActivity.sortProperty = sortProperty
                     this@MainActivity.sortType = sortType
                     dataUtil!!.setStringSetting(SORT_PROPERTY_KEY, this@MainActivity.sortProperty)
@@ -577,13 +442,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener,
                         HomeFragment::class.java.name
                     ) as HomeFragment?
                     if (currentFragment != null) {
-                        val params = Bundle()
-                        params.putString("property", this@MainActivity.sortProperty)
-                        params.putString(
-                            "type",
-                            if (this@MainActivity.sortType == VPNGateConnectionList.ORDER.ASC) "ASC" else "DESC"
-                        )
-                        FirebaseAnalytics.getInstance(applicationContext).logEvent("Sort", params)
                         currentFragment.sort(
                             this@MainActivity.sortProperty,
                             this@MainActivity.sortType
@@ -613,10 +471,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener,
                             HomeFragment::class.java.name
                         ) as HomeFragment?
                         if (homeFragment != null && vpnGateConnectionList != null) {
-                            val params = Bundle()
-                            params.putString("filterObj", Gson().toJson(filter))
-                            FirebaseAnalytics.getInstance(applicationContext)
-                                .logEvent("Filter", params)
                             vpnGateConnectionList!!.filter = filter
                             homeFragment.advanceFilter(filter)
                         }
@@ -649,9 +503,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener,
         }
         selectedMenuItem = menuItem
         disallowLoadHome = true
-        val params = Bundle()
-        params.putString("title", Objects.requireNonNull(menuItem.title).toString())
-        FirebaseAnalytics.getInstance(applicationContext).logEvent("Drawer_Select", params)
         when (menuItem.itemId) {
             R.id.nav_get_pro -> {
                 if (dataUtil!!.hasAds() && dataUtil!!.hasProInstalled()) {
@@ -916,9 +767,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener,
     }
 
     fun onError(error: String?) {
-        val params = Bundle()
-        params.putString("screen", "home")
-        FirebaseAnalytics.getInstance(applicationContext).logEvent("Error", params)
         binding.frameContent.visibility = View.GONE
         binding.incLoading.lnLoading.visibility = View.GONE
         binding.incError.lnError.visibility = View.VISIBLE

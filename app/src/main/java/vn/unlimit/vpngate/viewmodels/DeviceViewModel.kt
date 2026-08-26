@@ -4,7 +4,6 @@ import android.app.Application
 import android.util.Log
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
-import com.google.common.base.Strings
 import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -89,7 +88,7 @@ class DeviceViewModel(application: Application) : BaseViewModel(application) {
     private fun getDeviceInfo(): DeviceInfo? {
         try {
             val json = paidServerUtil.getStringSetting(DEVICE_INFO_KEY)
-            if (Strings.isNullOrEmpty(json)) {
+            if (json.isNullOrEmpty()) {
                 return null
             }
             return paidServerUtil.gson.fromJson(json, object : TypeToken<DeviceInfo>() {}.type)

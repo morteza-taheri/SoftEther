@@ -13,8 +13,6 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updateLayoutParams
 import androidx.core.view.updatePadding
 import com.bumptech.glide.Glide
-import com.google.android.libraries.ads.mobile.sdk.banner.AdView
-import com.google.android.libraries.ads.mobile.sdk.common.LoadAdError
 import vn.unlimit.vpngate.App
 import vn.unlimit.vpngate.R
 import vn.unlimit.vpngate.databinding.ActivityL2tpConnectBinding
@@ -26,9 +24,7 @@ import vn.unlimit.vpngate.utils.DataUtil
 class L2TPConnectActivity : AppCompatActivity(), View.OnClickListener {
     private var mVPNGateConnection: VPNGateConnection? = null
     private var dataUtil: DataUtil = App.instance!!.dataUtil!!
-    private var adView: AdView? = null
     private lateinit var binding: ActivityL2tpConnectBinding
-    private var adInitRunnable: Runnable? = null
 
     companion object {
         const val TYPE_FREE = 0
@@ -50,7 +46,6 @@ class L2TPConnectActivity : AppCompatActivity(), View.OnClickListener {
         val initialNavBottom = binding.navDetail.paddingBottom
         val initialBackTopMargin = (binding.btnBack.layoutParams as RelativeLayout.LayoutParams).topMargin
         val initialScrollBottom = binding.scrollView.paddingBottom
-        val initialAdBottom = binding.adContainerL2tp.paddingBottom
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, windowInsets ->
             val insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
             binding.root.updatePadding(
@@ -72,7 +67,6 @@ class L2TPConnectActivity : AppCompatActivity(), View.OnClickListener {
                 topMargin = initialBackTopMargin + initialNavTop + insets.top
             }
             binding.scrollView.updatePadding(bottom = initialScrollBottom + insets.bottom)
-            binding.adContainerL2tp.updatePadding(bottom = initialAdBottom + insets.bottom)
             windowInsets
         }
         ViewCompat.requestApplyInsets(binding.root)
@@ -104,12 +98,8 @@ class L2TPConnectActivity : AppCompatActivity(), View.OnClickListener {
                 } else {
                     binding.txtEndPoint.text = mVPNGateConnection?.ip
                 }
-                loadBannerAds()
             } else {
-                binding.navDetail.setBackgroundColor(resources.getColor(R.color.colorPaidServer, theme))
-                //Hide ad banner
                 val paidServerUtil = App.instance!!.paidServerUtil!!
-                binding.adContainerL2tp.visibility = View.GONE
                 binding.txtVpnShareSecret.text = getString(R.string.vpn_paid_shared_secret)
                 binding.txtVpnUser.text = paidServerUtil.getUserInfo()?.username
                 binding.txtVpnPw.text = getString(R.string.vpn_pw_hint)
@@ -133,45 +123,7 @@ class L2TPConnectActivity : AppCompatActivity(), View.OnClickListener {
     }
 
     private fun loadBannerAds() {
-        if (!dataUtil.hasAds()) return
-        val runnable = Runnable {
-            if (isFinishing || isDestroyed) return@Runnable
-            try {
-                adView = AdView(applicationContext)
-                val params = RelativeLayout.LayoutParams(
-                    RelativeLayout.LayoutParams.WRAP_CONTENT,
-                    RelativeLayout.LayoutParams.WRAP_CONTENT
-                )
-                params.addRule(RelativeLayout.CENTER_HORIZONTAL, RelativeLayout.TRUE)
-                params.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM, RelativeLayout.TRUE)
-                adView!!.layoutParams = params
-                binding.adContainerL2tp.addView(adView)
-                val bannerAdRequest = com.google.android.libraries.ads.mobile.sdk.banner.BannerAdRequest.Builder(
-                    resources.getString(R.string.admob_banner_bottom_l2tp),
-                    com.google.android.libraries.ads.mobile.sdk.banner.AdSize.LARGE_BANNER
-                ).build()
-                adView!!.loadAd(bannerAdRequest, object : com.google.android.libraries.ads.mobile.sdk.common.AdLoadCallback<com.google.android.libraries.ads.mobile.sdk.banner.BannerAd> {
-                    override fun onAdLoaded(ad: com.google.android.libraries.ads.mobile.sdk.banner.BannerAd) {
-                        Log.d("L2TPConnect", "Banner ad loaded")
-                    }
-
-                    override fun onAdFailedToLoad(adError: LoadAdError) {
-                        runOnUiThread {
-                            binding.adContainerL2tp.visibility = View.GONE
-                        }
-                    }
-                })
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
-        adInitRunnable = runnable
-        App.runWhenInitialized(runnable)
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        adInitRunnable?.let { App.cancelPendingCallbacks(it) }
+        // Ads removed.
     }
 
     override fun onClick(view: View?) {

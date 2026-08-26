@@ -22,7 +22,6 @@ import androidx.navigation.ui.AppBarConfiguration
 import androidx.navigation.ui.setupActionBarWithNavController
 import androidx.navigation.ui.setupWithNavController
 import com.google.android.material.bottomnavigation.BottomNavigationView
-import com.google.common.base.Strings
 import vn.unlimit.vpngate.App
 import vn.unlimit.vpngate.R
 import vn.unlimit.vpngate.activities.MainActivity
@@ -140,10 +139,8 @@ class PaidServerActivity : AppCompatActivity() {
         } else {
             NotificationUtil(this).requestPermission()
         }
-        if (isFromLogin || deviceViewModel?.deviceInfo?.value == null || Strings.isNullOrEmpty(
-                deviceViewModel?.deviceInfo?.value?._id
-            )
-        ) {
+        val deviceId = deviceViewModel?.deviceInfo?.value?._id
+        if (isFromLogin || deviceViewModel?.deviceInfo?.value == null || deviceId.isNullOrEmpty()) {
             deviceViewModel!!.addDevice()
         }
     }

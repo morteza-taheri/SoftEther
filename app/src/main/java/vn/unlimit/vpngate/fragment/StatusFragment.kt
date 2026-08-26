@@ -26,11 +26,6 @@ import androidx.core.content.edit
 import androidx.core.net.toUri
 import androidx.fragment.app.Fragment
 import androidx.preference.PreferenceManager
-import com.google.android.libraries.ads.mobile.sdk.common.AdRequest
-import com.google.android.libraries.ads.mobile.sdk.common.LoadAdError
-import com.google.android.libraries.ads.mobile.sdk.interstitial.InterstitialAd
-import com.google.firebase.analytics.FirebaseAnalytics
-import com.google.firebase.remoteconfig.FirebaseRemoteConfig
 import de.blinkt.openvpn.VpnProfile
 import de.blinkt.openvpn.core.ConfigParser
 import de.blinkt.openvpn.core.ConfigParser.ConfigParseError
@@ -56,6 +51,7 @@ import vn.unlimit.vpngate.activities.DetailActivity
 import vn.unlimit.vpngate.activities.MainActivity
 import vn.unlimit.vpngate.databinding.FragmentStatusBinding
 import vn.unlimit.vpngate.models.VPNGateConnection
+import vn.unlimit.vpngate.utils.AppConfig
 import vn.unlimit.vpngate.utils.DataUtil
 import vn.unlimit.vpngate.utils.NotificationUtil
 import java.io.ByteArrayInputStream
@@ -93,14 +89,11 @@ class StatusFragment : Fragment(), View.OnClickListener, VpnStatus.StateListener
     private var isConnecting = false
     private var isAuthFailed = false
     private var isDetached = false
-    private var mInterstitialAd: InterstitialAd? = null
     private var vpnProfile: VpnProfile? = null
     private var mContext: Context? = null
-    private var isFullScreenAdsLoaded = false
     private lateinit var binding: FragmentStatusBinding
     private lateinit var excludeAppsManager: vn.unlimit.vpngate.utils.ExcludeAppsManager
     private lateinit var prefs: SharedPreferences
-    private var adInitRunnable: Runnable? = null
     private lateinit var listener: SharedPreferences.OnSharedPreferenceChangeListener
     private var isSSTPConnected = false
     private var isSSTPConnectOrDisconnecting = false
@@ -171,7 +164,6 @@ class StatusFragment : Fragment(), View.OnClickListener, VpnStatus.StateListener
             }
         })
 
-        loadAdMob()
         bindData()
         excludeAppsManager.updateExcludeAppsButtonText { text ->
             binding.btnExcludeApps?.text = text
@@ -245,45 +237,6 @@ class StatusFragment : Fragment(), View.OnClickListener, VpnStatus.StateListener
         }
     }
 
-    private fun loadAdMob() {
-        if (dataUtil!!.hasAds() && dataUtil!!.getBooleanSetting(DataUtil.USER_ALLOWED_VPN, false)) {
-            val runnable = Runnable {
-                if (!isAdded) return@Runnable
-                val adRequest = AdRequest.Builder(getString(R.string.admob_full_screen_status)).build()
-                InterstitialAd.load(
-                    adRequest,
-                    object : com.google.android.libraries.ads.mobile.sdk.common.AdLoadCallback<InterstitialAd> {
-                        override fun onAdLoaded(interstitialAd: InterstitialAd) {
-                            mInterstitialAd = interstitialAd
-                            isFullScreenAdsLoaded = true
-                        }
-
-                        override fun onAdFailedToLoad(loadAdError: LoadAdError) {
-                            mInterstitialAd = null
-                        }
-                    })
-            }
-            adInitRunnable = runnable
-            App.runWhenInitialized(runnable)
-        }
-    }
-
-    private fun showAds() {
-        if (dataUtil!!.hasAds() && App.isMobileAdsInitialized && isFullScreenAdsLoaded && mInterstitialAd != null) {
-            isFullScreenAdsLoaded = false
-            mInterstitialAd!!.adEventCallback = object : com.google.android.libraries.ads.mobile.sdk.interstitial.InterstitialAdEventCallback {
-                override fun onAdDismissedFullScreenContent() {
-                    mInterstitialAd = null
-                    isFullScreenAdsLoaded = false
-                }
-                override fun onAdFailedToShowFullScreenContent(error: com.google.android.libraries.ads.mobile.sdk.common.FullScreenContentError) {
-                    mInterstitialAd = null
-                    isFullScreenAdsLoaded = false
-                }
-            }
-            mInterstitialAd!!.show(requireActivity())
-        }
-    }
 
 
 
@@ -299,15 +252,9 @@ class StatusFragment : Fragment(), View.OnClickListener, VpnStatus.StateListener
             binding.txtTotalDownload.text = OpenVPNService.humanReadableByteCount(0, false, resources)
         }
         if (view == binding.txtCheckIp) {
-            val params = Bundle()
-            params.putString("type", "check ip click")
-            params.putString("hostname", mVpnGateConnection?.calculateHostName ?: "")
-            params.putString("ip", mVpnGateConnection?.ip ?: "")
-            params.putString("country", mVpnGateConnection?.countryLong ?: "")
-            mContext?.let { FirebaseAnalytics.getInstance(it).logEvent("Click_Check_IP", params) }
             val browserIntent = Intent(
                 Intent.ACTION_VIEW,
-                FirebaseRemoteConfig.getInstance().getString("vpn_check_ip_url").toUri()
+                AppConfig.getString("vpn_check_ip_url").toUri()
             )
             startActivity(browserIntent)
         }
@@ -319,13 +266,6 @@ class StatusFragment : Fragment(), View.OnClickListener, VpnStatus.StateListener
             if (isAnyConnected) {
                 if (isFreeConnected) {
                     // Free connected: just disconnect
-                    val params = Bundle()
-                    params.putString("type", "disconnect current")
-                    params.putString("ip", mVpnGateConnection!!.ip)
-                    params.putString("hostname", mVpnGateConnection!!.calculateHostName)
-                    params.putString("country", mVpnGateConnection!!.countryLong)
-                    FirebaseAnalytics.getInstance(mContext!!).logEvent("Disconnect_VPN", params)
-
                     if (checkStatus() || isSoftEtherConnected) {
                         stopVpn()
                         isConnecting = false
@@ -338,13 +278,6 @@ class StatusFragment : Fragment(), View.OnClickListener, VpnStatus.StateListener
                     }
                 } else {
                     // Paid connected: disconnect paid and connect free
-                    val params = Bundle()
-                    params.putString("type", "disconnect paid and connect free")
-                    params.putString("ip", mVpnGateConnection!!.ip)
-                    params.putString("hostname", mVpnGateConnection!!.calculateHostName)
-                    params.putString("country", mVpnGateConnection!!.countryLong)
-                    FirebaseAnalytics.getInstance(mContext!!).logEvent("Disconnect_Paid_Connect_Free", params)
-
                     // Determine current connection type and disconnect
                     val currentMethod = if (checkStatus()) "openvpn" else if (isSoftEtherConnected) "softether" else "sstp"
                     if (currentMethod == "openvpn" || currentMethod == "softether") {
@@ -360,11 +293,9 @@ class StatusFragment : Fragment(), View.OnClickListener, VpnStatus.StateListener
                         if (targetMethod == "sstp") {
                             connectSSTPVPN()
                         } else if (targetMethod == "softether") {
-                            showAds()
                             val useTcp = !dataUtil!!.getBooleanSetting(DataUtil.LAST_CONNECT_USE_UDP, false)
                             startSoftEtherConnection(useTcp)
                         } else {
-                            showAds()
                             prepareVpn()
                         }
                         binding.txtStatus.text = getString(R.string.connecting) + " " + connectionName
@@ -396,14 +327,6 @@ class StatusFragment : Fragment(), View.OnClickListener, VpnStatus.StateListener
                 } else if (method == "softether") {
                     if (!isConnecting) {
                         dataUtil!!.setBooleanSetting(DataUtil.IS_LAST_CONNECTED_PAID, false)
-                        showAds()
-                        val params = Bundle()
-                        params.putString("type", "connect softether from status")
-                        params.putString("ip", mVpnGateConnection!!.ip)
-                        params.putString("hostname", mVpnGateConnection!!.calculateHostName)
-                        params.putString("country", mVpnGateConnection!!.countryLong)
-                        FirebaseAnalytics.getInstance(mContext!!).logEvent("Connect_VPN", params)
-                        
                         val useTcp = !dataUtil!!.getBooleanSetting(DataUtil.LAST_CONNECT_USE_UDP, false)
                         startSoftEtherConnection(useTcp)
                         
@@ -414,13 +337,6 @@ class StatusFragment : Fragment(), View.OnClickListener, VpnStatus.StateListener
                 } else {
                     if (!isConnecting) {
                         dataUtil!!.setBooleanSetting(DataUtil.IS_LAST_CONNECTED_PAID, false)
-                        showAds()
-                        val params = Bundle()
-                        params.putString("type", "connect from status")
-                        params.putString("ip", mVpnGateConnection!!.ip)
-                        params.putString("hostname", mVpnGateConnection!!.calculateHostName)
-                        params.putString("country", mVpnGateConnection!!.countryLong)
-                        FirebaseAnalytics.getInstance(mContext!!).logEvent("Connect_VPN", params)
                         prepareVpn()
                         binding.txtStatus.text = getString(R.string.connecting) + " " + connectionName
                         binding.btnOnOff.isActivated = true
@@ -443,15 +359,14 @@ class StatusFragment : Fragment(), View.OnClickListener, VpnStatus.StateListener
 
     /**
      * Resolves the primary DNS to use based on user settings:
-     * 1. Block Ads → AdGuard primary DNS (from Firebase Remote Config)
+     * 1. Block Ads → AdGuard primary DNS
      * 2. Custom DNS → user-defined primary DNS (if set)
      * 3. Fallback → 8.8.8.8
      */
     private fun resolvePrimaryDns(): String {
         return when {
             dataUtil!!.getBooleanSetting(DataUtil.SETTING_BLOCK_ADS, false) ->
-                FirebaseRemoteConfig.getInstance()
-                    .getString(getString(R.string.dns_block_ads_primary_cfg_key))
+                AppConfig.getString("vpn_dns_block_ads_primary")
                     .ifEmpty { "8.8.8.8" }
             dataUtil!!.getBooleanSetting(DataUtil.USE_CUSTOM_DNS, false) ->
                 dataUtil!!.getStringSetting(DataUtil.CUSTOM_DNS_IP_1, "8.8.8.8") ?: "8.8.8.8"
@@ -461,15 +376,14 @@ class StatusFragment : Fragment(), View.OnClickListener, VpnStatus.StateListener
 
     /**
      * Resolves the secondary DNS to use based on user settings:
-     * 1. Block Ads → AdGuard secondary DNS (from Firebase Remote Config)
+     * 1. Block Ads → AdGuard secondary DNS
      * 2. Custom DNS → user-defined secondary DNS (if set)
      * 3. Fallback → 8.8.4.4
      */
     private fun resolveSecondaryDns(): String {
         return when {
             dataUtil!!.getBooleanSetting(DataUtil.SETTING_BLOCK_ADS, false) ->
-                FirebaseRemoteConfig.getInstance()
-                    .getString(getString(R.string.dns_block_ads_alternative_cfg_key))
+                AppConfig.getString("vpn_dns_block_ads_alternative")
                     .ifEmpty { "8.8.4.4" }
             dataUtil!!.getBooleanSetting(DataUtil.USE_CUSTOM_DNS, false) ->
                 dataUtil!!.getStringSetting(DataUtil.CUSTOM_DNS_IP_2, "8.8.4.4")
@@ -583,7 +497,6 @@ class StatusFragment : Fragment(), View.OnClickListener, VpnStatus.StateListener
 
     override fun onDestroy() {
         super.onDestroy()
-        adInitRunnable?.let { App.cancelPendingCallbacks(it) }
         try {
             VpnStatus.removeStateListener(this)
             VpnStatus.removeByteCountListener(this)
@@ -826,11 +739,6 @@ class StatusFragment : Fragment(), View.OnClickListener, VpnStatus.StateListener
                     ConnectionStatus.LEVEL_AUTH_FAILED -> {
                         isAuthFailed = true
                         binding.btnOnOff.isActivated = false
-                        val params = Bundle()
-                        params.putString("ip", mVpnGateConnection!!.ip)
-                        params.putString("hostname", mVpnGateConnection!!.calculateHostName)
-                        params.putString("country", mVpnGateConnection!!.countryLong)
-                        FirebaseAnalytics.getInstance(mContext!!).logEvent("Connect_Error", params)
                         binding.txtStatus.text = resources.getString(R.string.vpn_auth_failure)
                         binding.txtCheckIp?.visibility = View.INVISIBLE
                         isConnecting = false
@@ -1136,15 +1044,10 @@ class StatusFragment : Fragment(), View.OnClickListener, VpnStatus.StateListener
 
     private fun handleSSTPBtn() {
         isSSTPConnectOrDisconnecting = true
-        val params = Bundle()
-        params.putString("hostname", mVpnGateConnection!!.calculateHostName)
-        params.putString("ip", mVpnGateConnection!!.ip)
-        params.putString("country", mVpnGateConnection!!.countryLong)
         val sstpHostName = prefs.getString(OscPrefKey.HOME_HOSTNAME.toString(), "")
         if (isSSTPConnected && sstpHostName != mVpnGateConnection!!.calculateHostName) {
             // Connected but not must disconnect old first
             startVpnSSTPService(ACTION_VPN_DISCONNECT)
-            params.putString("type", "replace connect via MS-SSTP")
             Handler(Looper.getMainLooper()).postDelayed({ connectSSTPVPN() }, 100)
         } else if (!isSSTPConnected) {
             // Check if SSTP is actually running (paid SSTP case)
@@ -1153,25 +1056,15 @@ class StatusFragment : Fragment(), View.OnClickListener, VpnStatus.StateListener
                 startVpnSSTPService(ACTION_VPN_DISCONNECT)
                 Handler(Looper.getMainLooper()).postDelayed({
                     dataUtil!!.setBooleanSetting(DataUtil.IS_LAST_CONNECTED_PAID, false)
-                    val connectParams = Bundle()
-                    connectParams.putString("hostname", mVpnGateConnection!!.calculateHostName)
-                    connectParams.putString("ip", mVpnGateConnection!!.ip)
-                    connectParams.putString("country", mVpnGateConnection!!.countryLong)
-                    connectParams.putString("type", "connect via MS-SSTP")
-                    FirebaseAnalytics.getInstance(mContext!!).logEvent("Connect_Via_SSTP", connectParams)
                     dataUtil!!.lastVPNConnection = mVpnGateConnection
                     startSSTPVPN()
                 }, 500)
             } else {
                 dataUtil!!.setBooleanSetting(DataUtil.IS_LAST_CONNECTED_PAID, false)
-                params.putString("type", "connect via MS-SSTP")
-                FirebaseAnalytics.getInstance(mContext!!).logEvent("Connect_Via_SSTP", params)
                 dataUtil!!.lastVPNConnection = mVpnGateConnection
                 startSSTPVPN()
             }
         } else {
-            params.putString("type", "cancel MS-SSTP")
-            FirebaseAnalytics.getInstance(mContext!!).logEvent("Cancel_Via_SSTP", params)
             startVpnSSTPService(ACTION_VPN_DISCONNECT)
             binding.btnOnOff.isActivated = false
             binding.txtStatus.setText(R.string.sstp_disconnecting)

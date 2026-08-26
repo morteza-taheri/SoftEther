@@ -22,7 +22,6 @@ import com.github.mikephil.charting.data.LineData
 import com.github.mikephil.charting.data.LineDataSet
 import com.github.mikephil.charting.formatter.IndexAxisValueFormatter
 import com.github.mikephil.charting.formatter.ValueFormatter
-import com.google.firebase.analytics.FirebaseAnalytics
 import de.blinkt.openvpn.core.OpenVPNService
 import vn.unlimit.vpngate.App
 import vn.unlimit.vpngate.BuildConfig
@@ -75,8 +74,6 @@ class HomeFragment : Fragment(), SwipeRefreshLayout.OnRefreshListener, View.OnCl
             )
         }
         binding.lnSwipeRefresh.setOnRefreshListener(this)
-        binding.lnBuyData.setOnClickListener(this)
-        binding.lnPurchaseHistory.setOnClickListener(this)
         val chartTypes = resources.getStringArray(R.array.chart_type)
         val spinnerInit = SpinnerInit(requireContext(), binding.incDataChart.spinChartType)
         spinnerInit.setStringArray(chartTypes, chartTypes[0])
@@ -87,11 +84,6 @@ class HomeFragment : Fragment(), SwipeRefreshLayout.OnRefreshListener, View.OnCl
                     1 -> chartViewModel?.chartType?.value = ChartViewModel.ChartType.DAILY
                     2 -> chartViewModel?.chartType?.value = ChartViewModel.ChartType.MONTHLY
                 }
-                val params = Bundle()
-                params.putString("username", userViewModel?.userInfo?.value?.username)
-                params.putString("chart_type", chartViewModel?.chartType?.value.toString())
-                FirebaseAnalytics.getInstance(requireContext())
-                    .logEvent("user_change_chart_type", params)
             }
 
         }
@@ -225,10 +217,6 @@ class HomeFragment : Fragment(), SwipeRefreshLayout.OnRefreshListener, View.OnCl
             dialog.dismiss()
             val loadingDialog = LoadingDialog.newInstance(getString(R.string.disconnecting_session))
             loadingDialog.show(parentFragmentManager, TAG)
-            val params = Bundle()
-            params.putString("username", userViewModel?.userInfo?.value?.username)
-            params.putString("server_name", connectedSession.serverId?.serverName)
-            params.putString("session_id", connectedSession.sessionId)
             sessionViewModel?.deleteSession(connectedSession._id, object : RequestListener {
                 override fun onSuccess(result: Any?) {
                     // Disconnect success -> reload list
@@ -239,8 +227,6 @@ class HomeFragment : Fragment(), SwipeRefreshLayout.OnRefreshListener, View.OnCl
                         Toast.LENGTH_LONG
                     ).show()
                     sessionViewModel?.getListSession()
-                    FirebaseAnalytics.getInstance(requireContext())
-                        .logEvent("user_disconnect_session_success", params)
                 }
 
                 override fun onError(error: String?) {
@@ -250,8 +236,6 @@ class HomeFragment : Fragment(), SwipeRefreshLayout.OnRefreshListener, View.OnCl
                         getString(R.string.disconnect_failed, connectedSession.sessionId),
                         Toast.LENGTH_LONG
                     ).show()
-                    FirebaseAnalytics.getInstance(requireContext())
-                        .logEvent("user_disconnect_session_failure", params)
                 }
             })
         }
@@ -328,9 +312,6 @@ class HomeFragment : Fragment(), SwipeRefreshLayout.OnRefreshListener, View.OnCl
     }
 
     override fun onClick(view: View?) {
-        when (view) {
-            binding.lnBuyData -> findNavController().navigate(R.id.navigation_buy_data)
-            binding.lnPurchaseHistory -> findNavController().navigate(R.id.navigation_purchase_history)
-        }
+        // Purchase/data-buying flow (Google Play Billing) has been removed.
     }
 }

@@ -19,8 +19,6 @@ import android.widget.CompoundButton
 import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.preference.PreferenceManager
-import com.google.firebase.analytics.FirebaseAnalytics
-import com.google.firebase.remoteconfig.FirebaseRemoteConfig
 import de.blinkt.openvpn.core.OpenVPNService
 import kittoku.osc.preference.OscPrefKey
 import vn.unlimit.vpngate.App
@@ -30,6 +28,7 @@ import vn.unlimit.vpngate.activities.DetailActivity
 import vn.unlimit.vpngate.activities.MainActivity
 import vn.unlimit.vpngate.databinding.FragmentSettingBinding
 import vn.unlimit.vpngate.provider.BaseProvider
+import vn.unlimit.vpngate.utils.AppConfig
 import vn.unlimit.vpngate.utils.DataUtil
 import vn.unlimit.vpngate.utils.SpinnerInit
 import vn.unlimit.vpngate.utils.SpinnerInit.OnItemSelectedIndexListener
@@ -70,9 +69,6 @@ class SettingFragment : Fragment(), View.OnClickListener, AdapterView.OnItemSele
         )
         spinnerInit.onItemSelectedIndexListener = object : OnItemSelectedIndexListener {
             override fun onItemSelected(name: String?, index: Int) {
-                val params = Bundle()
-                params.putString("selected_cache_value", listCacheTime[index])
-                FirebaseAnalytics.getInstance(mContext).logEvent("Change_Cache_Time_Setting", params)
                 dataUtil.setIntSetting(DataUtil.SETTING_CACHE_TIME_KEY, index)
             }
         }
@@ -109,10 +105,6 @@ class SettingFragment : Fragment(), View.OnClickListener, AdapterView.OnItemSele
             )
             spinnerInitScreen.onItemSelectedIndexListener = object : OnItemSelectedIndexListener {
                 override fun onItemSelected(name: String?, index: Int) {
-                    val params = Bundle()
-                    params.putString("selected_screen", listScreen[index])
-                    FirebaseAnalytics.getInstance(mContext)
-                        .logEvent("Change_StartUp_Screen_Setting", params)
                     dataUtil.setIntSetting(DataUtil.SETTING_STARTUP_SCREEN, index)
                     OpenVPNService.setNotificationActivityClass(if (index == 0) DetailActivity::class.java else MainActivity::class.java)
                 }
@@ -259,12 +251,9 @@ class SettingFragment : Fragment(), View.OnClickListener, AdapterView.OnItemSele
     }
 
     override fun onCheckedChanged(switchCompat: CompoundButton, isChecked: Boolean) {
-        val params = Bundle()
-        params.putString("enabled", isChecked.toString() + "")
         if (switchCompat == binding.swUdp) {
             dataUtil.setBooleanSetting(DataUtil.INCLUDE_UDP_SERVER, isChecked)
             clearListServerCache(false)
-            FirebaseAnalytics.getInstance(mContext).logEvent("Change_Include_UDP_Setting", params)
             return
         }
         val editor = prefs.edit()
@@ -292,13 +281,10 @@ class SettingFragment : Fragment(), View.OnClickListener, AdapterView.OnItemSele
                 editor.putBoolean(OscPrefKey.DNS_DO_USE_CUSTOM_SERVER.toString(), false)
             }
             editor.apply()
-            FirebaseAnalytics.getInstance(mContext).logEvent("Change_Custom_DNS_Setting", params)
             return
         }
         if (switchCompat == binding.swDomain) {
             dataUtil.setBooleanSetting(DataUtil.USE_DOMAIN_TO_CONNECT, isChecked)
-            FirebaseAnalytics.getInstance(mContext)
-                .logEvent("Change_Use_Domain_To_Connect_Setting", params)
             return
         }
         if (switchCompat == binding.swNotifySpeed) {
@@ -308,14 +294,6 @@ class SettingFragment : Fragment(), View.OnClickListener, AdapterView.OnItemSele
                 Toast.LENGTH_SHORT
             ).show()
             dataUtil.setBooleanSetting(DataUtil.SETTING_NOTIFY_SPEED, isChecked)
-            FirebaseAnalytics.getInstance(mContext)
-                .logEvent("Change_Notify_Speed_Setting", params)
-            return
-        }
-        if (dataUtil.hasAds() && isChecked) {
-            switchCompat.isChecked = false
-            Toast.makeText(context, getString(R.string.feature_available_in_pro), Toast.LENGTH_LONG)
-                .show()
             return
         }
         //Only save setting in pro version
@@ -331,13 +309,11 @@ class SettingFragment : Fragment(), View.OnClickListener, AdapterView.OnItemSele
                 editor.putBoolean(OscPrefKey.DNS_DO_USE_CUSTOM_SERVER.toString(), true)
                 editor.putString(
                     OscPrefKey.DNS_CUSTOM_ADDRESS.toString(),
-                    FirebaseRemoteConfig.getInstance()
-                        .getString(getString(R.string.dns_block_ads_primary_cfg_key))
+                    AppConfig.getString("vpn_dns_block_ads_primary")
                 )
                 editor.putString(
                     OscPrefKey.DNS_CUSTOM_ADDRESS_SECONDARY.toString(),
-                    FirebaseRemoteConfig.getInstance()
-                        .getString(getString(R.string.dns_block_ads_alternative_cfg_key))
+                    AppConfig.getString("vpn_dns_block_ads_alternative")
                 )
             } else {
                 editor.putBoolean(OscPrefKey.DNS_DO_USE_CUSTOM_SERVER.toString(), false)
@@ -345,7 +321,6 @@ class SettingFragment : Fragment(), View.OnClickListener, AdapterView.OnItemSele
                 editor.remove(OscPrefKey.DNS_CUSTOM_ADDRESS_SECONDARY.toString())
             }
             editor.apply()
-            FirebaseAnalytics.getInstance(mContext).logEvent("Change_Block_Ads_Setting", params)
         }
     }
 

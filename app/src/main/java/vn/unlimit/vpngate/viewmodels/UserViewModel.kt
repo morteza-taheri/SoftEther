@@ -3,12 +3,10 @@ package vn.unlimit.vpngate.viewmodels
 import android.app.Activity
 import android.app.Application
 import android.content.Intent
-import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
-import com.google.firebase.analytics.FirebaseAnalytics
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -146,11 +144,6 @@ class UserViewModel(application: Application) : BaseViewModel(application) {
                 userInfo.postValue(fetchUser)
             } catch (e: HttpException) {
                 Log.e(TAG, "fetch user error with HttpException", e)
-                val params = Bundle()
-                params.putString("username", paidServerUtil.getUserInfo()?.username)
-                params.putString("errorInfo", e.message)
-                FirebaseAnalytics.getInstance(getApplication())
-                    .logEvent("Paid_Server_Fetch_User_Error", params)
                 if (updateLoading) {
                     isLoading.postValue(false)
                 }

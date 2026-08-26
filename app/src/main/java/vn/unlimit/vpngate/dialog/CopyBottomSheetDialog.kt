@@ -15,7 +15,6 @@ import com.bumptech.glide.Glide
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
-import com.google.firebase.analytics.FirebaseAnalytics
 import vn.unlimit.vpngate.App.Companion.instance
 import vn.unlimit.vpngate.R
 import vn.unlimit.vpngate.databinding.LayoutCopyBottomDialogBinding
@@ -69,22 +68,8 @@ class CopyBottomSheetDialog : BottomSheetDialogFragment(), View.OnClickListener 
                 requireActivity().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             var clip: ClipData? = null
             if (view == binding.btnCopyIp) {
-                val params = Bundle()
-                params.putString("type", "ip")
-                params.putString("ip", mVpnGateConnection!!.ip)
-                params.putString("hostname", mVpnGateConnection!!.calculateHostName)
-                params.putString("country", mVpnGateConnection!!.countryLong)
-                FirebaseAnalytics.getInstance(requireActivity().applicationContext)
-                    .logEvent("Copy", params)
                 clip = ClipData.newPlainText("text", mVpnGateConnection!!.ip)
             } else if (view == binding.btnCopyHostname) {
-                val params = Bundle()
-                params.putString("type", "hostname")
-                params.putString("ip", mVpnGateConnection!!.ip)
-                params.putString("hostname", mVpnGateConnection!!.calculateHostName)
-                params.putString("country", mVpnGateConnection!!.countryLong)
-                FirebaseAnalytics.getInstance(requireActivity().applicationContext)
-                    .logEvent("Copy", params)
                 clip = ClipData.newPlainText("text", mVpnGateConnection!!.calculateHostName)
             }
             if (clip != null) {

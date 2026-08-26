@@ -14,13 +14,6 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout.OnRefreshListener
-import com.google.android.libraries.ads.mobile.sdk.common.AdRequest
-import com.google.android.libraries.ads.mobile.sdk.common.FullScreenContentError
-import com.google.android.libraries.ads.mobile.sdk.common.LoadAdError
-import com.google.android.libraries.ads.mobile.sdk.interstitial.InterstitialAd
-import com.google.android.libraries.ads.mobile.sdk.interstitial.InterstitialAdEventCallback
-import com.google.firebase.analytics.FirebaseAnalytics
-import com.google.firebase.remoteconfig.FirebaseRemoteConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -59,36 +52,10 @@ class HomeFragment : Fragment(), OnRefreshListener, View.OnClickListener, OnItem
     private var mKeyword = ""
     private var handler: Handler? = null
     private var mActivity: MainActivity? = null
-    private var interstitialAd: InterstitialAd? = null
-
-    //Flag ads is showed need request new ad
-    private var isShowedAd = true
     private lateinit var binding: FragmentHomeBinding
-    private var adInitRunnable: Runnable? = null
 
     override fun onResume() {
         super.onResume()
-        if (dataUtil!!.hasAds() && (interstitialAd == null || isShowedAd)) {
-            val runnable = Runnable {
-                if (!isAdded) return@Runnable
-                val adRequest = AdRequest.Builder(getString(R.string.admob_full_screen_detail)).build()
-                InterstitialAd.load(
-                    adRequest,
-                    object : com.google.android.libraries.ads.mobile.sdk.common.AdLoadCallback<InterstitialAd> {
-                        override fun onAdLoaded(interstitialAd: InterstitialAd) {
-                            this@HomeFragment.interstitialAd = interstitialAd
-                        }
-
-                        override fun onAdFailedToLoad(loadAdError: LoadAdError) {
-                            this@HomeFragment.interstitialAd = null
-                            Log.e(TAG, loadAdError.toString())
-                        }
-                    })
-                isShowedAd = false
-            }
-            adInitRunnable = runnable
-            App.runWhenInitialized(runnable)
-        }
     }
 
     private fun startDetailAct(vpnGateConnection: VPNGateConnection?) {
@@ -103,23 +70,7 @@ class HomeFragment : Fragment(), OnRefreshListener, View.OnClickListener, OnItem
     }
 
     private fun checkAndShowAd(vpnGateConnection: VPNGateConnection?): Boolean {
-        if (dataUtil!!.hasAds() && App.isMobileAdsInitialized) {
-            if (interstitialAd != null) {
-                interstitialAd!!.adEventCallback = object : InterstitialAdEventCallback {
-                    override fun onAdDismissedFullScreenContent() {
-                        startDetailAct(vpnGateConnection)
-                    }
-
-                    override fun onAdFailedToShowFullScreenContent(fullScreenContentError: FullScreenContentError) {
-                        // Called when fullscreen content failed to show.
-                        startDetailAct(vpnGateConnection)
-                    }
-                }
-                interstitialAd!!.show(requireActivity())
-                isShowedAd = true
-                return true
-            }
-        }
+        // Ads removed (no Google services). Kept for API compatibility.
         return false
     }
 
@@ -130,7 +81,6 @@ class HomeFragment : Fragment(), OnRefreshListener, View.OnClickListener, OnItem
 
     override fun onDestroy() {
         super.onDestroy()
-        adInitRunnable?.let { App.cancelPendingCallbacks(it) }
     }
 
     override fun onCreate(savedBundle: Bundle?) {
@@ -138,10 +88,6 @@ class HomeFragment : Fragment(), OnRefreshListener, View.OnClickListener, OnItem
         try {
             dataUtil = instance!!.dataUtil
             vpnGateListAdapter = VPNGateListAdapter(mContext!!)
-            val showNativeAd = dataUtil!!.hasAds() && 
-                FirebaseRemoteConfig.getInstance().getBoolean(getString(R.string.cfg_show_native_ad))
-            vpnGateListAdapter!!.setHasAds(showNativeAd)
-            vpnGateListAdapter!!.setAdUnitId(getString(R.string.admob_native_unit_id))
             handler = Handler(Looper.getMainLooper())
             connectionListViewModel = (this.activity as MainActivity).connectionListViewModel
             connectionListViewModel!!.isLoading.observe(this) { isLoading: Boolean? ->
@@ -322,23 +268,12 @@ class HomeFragment : Fragment(), OnRefreshListener, View.OnClickListener, OnItem
     }
 
     override fun onItemClick(o: Any?, position: Int) {
-        val params = Bundle()
-        params.putString("ip", (o as VPNGateConnection?)!!.ip)
-        params.putString("hostname", o!!.calculateHostName)
-        params.putString("country", o.countryLong)
-        FirebaseAnalytics.getInstance(mContext!!).logEvent("Select_Server", params)
-        if (!checkAndShowAd(o)) {
-            startDetailAct(o)
-        }
+        val vpnGateConnection = o as VPNGateConnection?
+        startDetailAct(vpnGateConnection)
     }
 
     override fun onItemLongClick(o: Any?, position: Int) {
         try {
-            val params = Bundle()
-            params.putString("ip", (o as VPNGateConnection?)!!.ip)
-            params.putString("hostname", o!!.calculateHostName)
-            params.putString("country", o.countryLong)
-            FirebaseAnalytics.getInstance(mContext!!).logEvent("Long_Click_Server", params)
             val dialog = newInstance(o)
             if (!mActivity!!.isFinishing && !mActivity!!.isDestroyed) {
                 dialog.show(parentFragmentManager, CopyBottomSheetDialog::class.java.name)

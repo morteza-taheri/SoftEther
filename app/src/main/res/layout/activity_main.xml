@@ -26,7 +26,6 @@
             android:id="@+id/frame_content"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:layout_above="@id/ad_container_home"
             android:layout_marginTop="?attr/actionBarSize" />
 
         <include android:id="@+id/inc_error" layout="@layout/layout_error" />
@@ -34,13 +33,6 @@
         <include android:id="@+id/inc_loading" layout="@layout/layout_loading_center" />
 
         <include android:id="@+id/inc_no_network" layout="@layout/layout_no_network" />
-
-        <RelativeLayout
-            android:id="@+id/ad_container_home"
-            android:layout_width="match_parent"
-            android:layout_height="100dp"
-            android:layout_alignParentBottom="true"
-            android:gravity="center_horizontal" />
 
     </RelativeLayout>
     <!-- Left Menu -->
