@@ -254,14 +254,6 @@ class DataUtil(context: Context?) {
         editor.apply()
     }
 
-    var isAcceptedPrivacyPolicy: Boolean
-        get() = sharedPreferencesSetting!!.getBoolean(ACCEPTED_PRIVACY_POLICY, false)
-        set(isAccepted) {
-            val editor = sharedPreferencesSetting!!.edit()
-            editor.putBoolean(ACCEPTED_PRIVACY_POLICY, isAccepted)
-            editor.apply()
-        }
-
     companion object {
         const val TAG = "DataUtil"
         const val SETTING_CACHE_TIME_KEY: String = "SETTING_CACHE_TIME_KEY"
@@ -281,7 +273,6 @@ class DataUtil(context: Context?) {
         const val SETTING_NOTIFY_SPEED: String = "SETTING_NOTIFY_SPEED"
         const val IS_LAST_CONNECTED_PAID: String = "IS_LAST_CONNECTED_PAID"
         private const val USE_ALTERNATIVE_SERVER = "USE_ALTERNATIVE_SERVER"
-        private const val ACCEPTED_PRIVACY_POLICY = "ACCEPTED_PRIVACY_POLICY"
         const val CONNECTION_CACHE_KEY = "CONNECTION_CACHE_KEY"
 
         /**

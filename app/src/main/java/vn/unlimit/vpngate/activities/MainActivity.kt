@@ -53,7 +53,6 @@ import vn.unlimit.vpngate.dialog.SortBottomSheetDialog
 import vn.unlimit.vpngate.fragment.AboutFragment
 import vn.unlimit.vpngate.fragment.HelpFragment
 import vn.unlimit.vpngate.fragment.HomeFragment
-import vn.unlimit.vpngate.fragment.PrivacyPolicyFragment
 import vn.unlimit.vpngate.fragment.SettingFragment
 import vn.unlimit.vpngate.fragment.StatusFragment
 import vn.unlimit.vpngate.models.VPNGateConnectionList
@@ -237,10 +236,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener,
      */
     private fun initState() {
         checkStatusMenu()
-        if (!dataUtil!!.isAcceptedPrivacyPolicy) {
-            replaceFragment("privacy-policy")
-            return
-        }
         if (dataUtil!!.getIntSetting(
                 DataUtil.SETTING_STARTUP_SCREEN,
                 0
@@ -406,10 +401,8 @@ class MainActivity : AppCompatActivity(), View.OnClickListener,
             if (vpnGateConnectionList != null && "" != sortProperty) {
                 vpnGateConnectionList.sort(sortProperty, sortType, true)
             }
-            if (dataUtil!!.isAcceptedPrivacyPolicy) {
-                withContext(Dispatchers.Main) {
-                    displayHome()
-                }
+            withContext(Dispatchers.Main) {
+                displayHome()
             }
         }
     }
@@ -496,11 +489,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener,
 
     @SuppressLint("NonConstantResourceId")
     override fun onNavigationItemSelected(menuItem: MenuItem): Boolean {
-        if (!dataUtil!!.isAcceptedPrivacyPolicy) {
-            Toast.makeText(this, getText(R.string.must_accept_privacy_policy), Toast.LENGTH_LONG)
-                .show()
-            return true
-        }
         selectedMenuItem = menuItem
         disallowLoadHome = true
         when (menuItem.itemId) {
@@ -626,14 +614,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener,
                 var tag: String? = ""
                 var title = resources.getString(R.string.app_name)
                 when (url) {
-                    "privacy-policy" -> {
-                        tag = PrivacyPolicyFragment::class.java.name
-                        fragment = supportFragmentManager.findFragmentByTag(
-                            tag
-                        ) ?: PrivacyPolicyFragment()
-                        title = getString(R.string.privacy_policy_title)
-                    }
-
                     "home" -> {
                         tag = HomeFragment::class.java.name
                         fragment = supportFragmentManager.findFragmentByTag(
@@ -702,21 +682,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener,
         this.loadData()
         Log.d(TAG, "replaceFragment startHome")
         replaceFragment("home")
-    }
-
-    fun restartApp() {
-        try {
-            val i = checkNotNull(
-                baseContext.packageManager
-                    .getLaunchIntentForPackage(baseContext.packageName)
-            )
-            i.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
-            startActivity(i)
-            this.finishAffinity()
-        } catch (e: Exception) {
-            Log.e(TAG, "Got exception when handle restartApp", e)
-            this.startHome()
-        }
     }
 
     private fun toggleAction(visible: Boolean) {
