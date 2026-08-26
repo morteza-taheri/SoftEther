@@ -55,7 +55,7 @@
 -keep class * extends android.app.Service {
     public <init>();
 }
-# Crashlytics
+# Keep attributes and exception classes for crash reporting
 -keepattributes *Annotation*
 -keepattributes SourceFile,LineNumberTable
 -keep public class * extends java.lang.Exception
