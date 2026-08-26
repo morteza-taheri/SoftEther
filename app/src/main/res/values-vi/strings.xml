@@ -178,7 +178,6 @@
     <string name="title_servers">Máy chủ</string>
     <string name="title_free_server">Server miễn phí</string>
     <string name="title_personal">Cá nhân</string>
-    <string name="title_buy_data">Mua dung lượng</string>
     <string name="vpn_pw_hint">[Mật khẩu của bạn]</string>
     <!-- Login screen -->
     <string name="title_activity_login">Đăng nhập vào máy chủ trả phí</string>
@@ -251,8 +250,6 @@
     <!-- Home screen -->
     <string name="home_paid_welcome">Xin chào %1$s</string>
     <string name="remaining_data_size">Dung lượng còn lại</string>
-    <string name="action_buy_data">Mua dung lượng</string>
-    <string name="action_purchase_history">Lịch sử thanh toán</string>
     <string name="calculating_data_size">Đang tính toán…</string>
     <string name="app_author_server">Tác giả ứng dụng</string>
     <string name="community_server">Cộng đồng</string>
@@ -283,23 +280,6 @@
     <string name="disconnect_failed">Ngắt kết nối (%1$s) thất bại</string>
     <string name="current_session">[Phiên hiện tại]</string>
     <string name="disconnect_in_notification_or_detail_server">Ngắt kết nối trên thông báo hoặc chi tiết máy chủ.</string>
-    <!-- Buy data -->
-    <string name="btn_buy_data">Mua với %1$s (%2$s%3$s/GB)</string>
-    <string name="purchase_successful">Mua gói [%1$s] thành công</string>
-    <string name="get_sku_list_error">Lấy danh sách gói thất bại. Vui lòng thử lại</string>
-    <string name="invalid_purchase_request">Giao dịch mua không hợp lệ. Vui lòng thử lại</string>
-    <string name="duplicate_purchase_create_request">Giao dịch mua đã hoàn thành. Vui lòng kiểm tra lịch sử mua</string>
-    <string name="invalid_product_id">Gói đã chọn không hợp lệ. Vui lòng thử lại hoặc liên hệ admin để nhận trợ giúp.</string>
-    <string name="processing_text">Đang xử lý…</string>
-    <string name="sku_item_click_error">Gặp lỗi khi bấm mua dung lượng. Đang tải lại danh sách gói.</string>
-    <!-- Purchase history -->
-    <string name="title_purchase_history">Lịch sử thanh toán</string>
-    <string name="history_plat_form">Nền tảng</string>
-    <string name="history_data_size">Dung lượng gói</string>
-    <string name="history_data_size_receive">Dung lượng nhận</string>
-    <string name="history_price">Giá</string>
-    <string name="history_date_time">Thời gian</string>
-    <string name="history_have_not_purchase">Bạn chưa thực hiện giao dịch mua nào.</string>
     <!-- Personal -->
     <string name="personal_notification_setting">Cài đặt thông báo</string>
     <string name="personal_profile">Hồ sơ</string>
@@ -321,7 +301,6 @@
     <!-- Profile -->
     <string name="update_profile_success">Cập nhật hồ sơ thành công!</string>
     <string name="update_profile_error">Cập nhật hồ sơ thất bại. Vui lòng thử lại!</string>
-    <string name="native_ad_label">QC</string>
     <!-- Check app install source error message -->
     <string name="install_source_error_title">Cài đặt không hợp lệ</string>
     <string name="install_source_error_message">Bạn đang sử dụng phiên bản app được cài đặt trái phép. Vui lòng cài đặt phiên bản hợp lệ từ CH Play</string>
