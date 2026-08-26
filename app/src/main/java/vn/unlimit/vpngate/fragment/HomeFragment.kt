@@ -274,7 +274,7 @@ class HomeFragment : Fragment(), OnRefreshListener, View.OnClickListener, OnItem
 
     override fun onItemLongClick(o: Any?, position: Int) {
         try {
-            val dialog = newInstance(o)
+            val dialog = newInstance(o as VPNGateConnection?)
             if (!mActivity!!.isFinishing && !mActivity!!.isDestroyed) {
                 dialog.show(parentFragmentManager, CopyBottomSheetDialog::class.java.name)
             } else if (!mActivity!!.isFinishing) {
