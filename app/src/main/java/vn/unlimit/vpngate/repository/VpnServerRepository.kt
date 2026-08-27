@@ -7,8 +7,11 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withTimeoutOrNull
+import vn.unlimit.vpngate.collector.CollectorDebugDump
 import vn.unlimit.vpngate.data.model.CollectorLog
+import vn.unlimit.vpngate.data.model.VpnRecords
 import vn.unlimit.vpngate.data.model.VpnServerRecord
+import vn.unlimit.vpngate.data.model.VpnUtil
 import vn.unlimit.vpngate.data.remote.HttpFetcher
 import vn.unlimit.vpngate.data.remote.OkHttpFetcher
 import vn.unlimit.vpngate.data.remote.VpnGateApiSource
@@ -41,6 +44,7 @@ class VpnServerRepository(
         private const val CACHE_FILE = "collector_vpn_servers.json"
         private const val MAIN_TIMEOUT_MS = 45_000L
         private const val MIRROR_TIMEOUT_MS = 30_000L
+        private const val RAW_CAPTURE_LIMIT = 512 * 1024
     }
 
     data class CollectResult(
@@ -49,10 +53,28 @@ class VpnServerRepository(
         val fromCache: Boolean,
     )
 
+    /** §33 debug panel payload for one server. */
+    data class DebugPayload(
+        val dump: String,
+        val rawHtml: String?,
+        val rawApi: String?,
+    )
+
     private val gson = Gson()
     private val htmlSource = VpnGateHtmlSource(fetcher)
     private val apiSource = VpnGateApiSource(fetcher)
     private val mirrorSource = VpnGateMirrorSource(fetcher)
+
+    // §33: in-memory provenance from the LAST network collection.
+    // Not persisted: after restart the debug panel reports no data.
+    @Volatile
+    private var lastRecords: List<VpnServerRecord> = emptyList()
+
+    @Volatile
+    private var lastRawHtml: String? = null
+
+    @Volatile
+    private var lastRawApi: String? = null
 
     /**
      * Network-first collection: main HTML + API in parallel, mirrors
@@ -90,6 +112,10 @@ class VpnServerRepository(
                     .onFailure { e -> CollectorLog.d("API parse failed: ${e.message}") }
             }
 
+            // §33: keep bounded raw captures for the debug panel.
+            lastRawHtml = html?.take(RAW_CAPTURE_LIMIT)
+            lastRawApi = apiText?.take(RAW_CAPTURE_LIMIT)
+
             // Mirrors fetched one by one (rate-limited by the fetcher).
             for ((index, mirrorUrl) in mirrors.withIndex()) {
                 val mirrorHtml = withTimeoutOrNull(MIRROR_TIMEOUT_MS) {
@@ -119,6 +145,9 @@ class VpnServerRepository(
 
         ServerQualityCalculator.scoreAll(valid)
 
+        // §33: retain merged records for per-server provenance dump.
+        lastRecords = valid
+
         val connectionList = VpnConnectionMapper.toConnectionList(valid)
         if (connectionList.size() == 0) {
             return@withContext loadSnapshot()
@@ -126,6 +155,33 @@ class VpnServerRepository(
 
         saveSnapshot(connectionList)
         CollectResult(connectionList, valid.size, fromCache = false)
+    }
+
+    /**
+     * §33: locate the merged record behind a displayed server and
+     * build its provenance dump plus raw-source captures. Returns
+     * null when the last network collection is unavailable (e.g.
+     * list restored from cache after restart).
+     */
+    fun debugPayload(ip: String, hostname: String): DebugPayload? {
+        val record = findRecord(ip, hostname) ?: return null
+
+        return DebugPayload(
+            dump = CollectorDebugDump.format(record),
+            rawHtml = lastRawHtml,
+            rawApi = lastRawApi,
+        )
+    }
+
+    private fun findRecord(ip: String, hostname: String): VpnServerRecord? {
+        val host = VpnUtil.normalizeHost(hostname)
+
+        return lastRecords.firstOrNull { record ->
+            val identity = VpnRecords.identity(record)
+            (ip.isNotEmpty() && VpnRecords.str(identity["ip"]) == ip) ||
+                (host.isNotEmpty() &&
+                    VpnUtil.normalizeHost(identity["hostname"]) == host)
+        }
     }
 
     private fun cacheFile(): File? = cacheDir?.let { File(it, CACHE_FILE) }

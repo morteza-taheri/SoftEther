@@ -29,6 +29,7 @@ import vn.unlimit.vpngate.adapter.VPNGateListAdapter
 import vn.unlimit.vpngate.databinding.FragmentHomeBinding
 import vn.unlimit.vpngate.dialog.CopyBottomSheetDialog
 import vn.unlimit.vpngate.dialog.CopyBottomSheetDialog.Companion.newInstance
+import vn.unlimit.vpngate.dialog.DebugInfoBottomSheetDialog
 import vn.unlimit.vpngate.models.VPNGateConnection
 import vn.unlimit.vpngate.models.VPNGateConnectionList
 import vn.unlimit.vpngate.provider.BaseProvider
@@ -274,12 +275,28 @@ class HomeFragment : Fragment(), OnRefreshListener, View.OnClickListener, OnItem
 
     override fun onItemLongClick(o: Any?, position: Int) {
         try {
-            val dialog = newInstance(o as VPNGateConnection?)
+            val connection = o as VPNGateConnection?
+            val dialog = newInstance(connection)
+            dialog.onDebugInfoClick = { conn -> showDebugInfo(conn) }
             if (!mActivity!!.isFinishing && !mActivity!!.isDestroyed) {
                 dialog.show(parentFragmentManager, CopyBottomSheetDialog::class.java.name)
             } else if (!mActivity!!.isFinishing) {
                 dialog.show(parentFragmentManager, CopyBottomSheetDialog::class.java.name)
             }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            Log.e(TAG, e.message, e)
+        }
+    }
+
+    private fun showDebugInfo(conn: VPNGateConnection) {
+        try {
+            if (mActivity!!.isFinishing || mActivity!!.isDestroyed) {
+                return
+            }
+            val payload = connectionListViewModel?.debugPayload(conn)
+            DebugInfoBottomSheetDialog.newInstance(conn.calculateHostName, payload)
+                .show(parentFragmentManager, DebugInfoBottomSheetDialog.TAG)
         } catch (e: Exception) {
             e.printStackTrace()
             Log.e(TAG, e.message, e)

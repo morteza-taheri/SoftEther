@@ -27,6 +27,9 @@ class CopyBottomSheetDialog : BottomSheetDialogFragment(), View.OnClickListener 
     private var mVpnGateConnection: VPNGateConnection? = null
     private lateinit var binding: LayoutCopyBottomDialogBinding
 
+    /** Invoked when the user taps "Debug collector info". */
+    var onDebugInfoClick: ((VPNGateConnection) -> Unit)? = null
+
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
         val dialog =
             BottomSheetDialog(requireActivity())
@@ -54,6 +57,7 @@ class CopyBottomSheetDialog : BottomSheetDialogFragment(), View.OnClickListener 
         binding.txtTitle.text = mVpnGateConnection!!.ip
         binding.btnCopyIp.setOnClickListener(this)
         binding.btnCopyHostname.setOnClickListener(this)
+        binding.btnDebugInfo.setOnClickListener(this)
         Glide.with(this)
             .load(instance!!.dataUtil!!.baseUrl + "/images/flags/" + mVpnGateConnection!!.countryShort + ".png")
             .placeholder(R.color.colorOverlay)
@@ -64,6 +68,15 @@ class CopyBottomSheetDialog : BottomSheetDialogFragment(), View.OnClickListener 
 
     override fun onClick(view: View) {
         try {
+            if (view == binding.btnDebugInfo) {
+                val conn = mVpnGateConnection
+                dismiss()
+                if (conn != null) {
+                    onDebugInfoClick?.invoke(conn)
+                }
+                return
+            }
+
             val clipboard =
                 requireActivity().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             var clip: ClipData? = null

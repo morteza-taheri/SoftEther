@@ -76,4 +76,29 @@
             android:text="@string/copy_hostname"
             android:textSize="16sp" />
     </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/btn_debug_info"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="?android:attr/selectableItemBackground"
+        android:clickable="true"
+        android:focusable="true"
+        android:orientation="horizontal"
+        android:padding="15dp">
+
+        <ImageView
+            android:layout_width="25dp"
+            android:layout_height="25dp"
+            android:layout_gravity="center_vertical"
+            android:src="@drawable/ic_clipboard_grey" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_vertical"
+            android:paddingStart="10dp"
+            android:text="@string/collector_debug_source"
+            android:textSize="16sp" />
+    </LinearLayout>
 </LinearLayout>

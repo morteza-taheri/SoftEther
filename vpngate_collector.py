@@ -3616,7 +3616,185 @@ def run_diagnose(target: Optional[str]) -> int:
     return 1 if result["mismatchTotal"] else 0
 
 
+# ============================================================
+# DEBUG DUMP (§33 — same layout as the in-app debug panel)
+# ============================================================
+
+def format_server_debug(server: Dict[str, Any]) -> str:
+    """Per-server provenance dump: identity, per-protocol facts,
+    quality/confidence, per-field source owners and conflicts."""
+    identity = server["identity"]
+    perf = server["performance"]
+    protocols = server["protocols"]
+
+    lines: List[str] = []
+    lines.append("=" * 72)
+    lines.append(
+        f"SERVER DUMP: {identity['hostname']} ({identity['ip']})"
+    )
+    lines.append("=" * 72)
+
+    lines.append("[identity]")
+    lines.append(
+        f"  hostname={identity['hostname']} ip={identity['ip']} "
+        f"isp={identity['ispHostname']} country={identity['country']} "
+        f"countryLong={identity['countryLong']}"
+    )
+
+    groups = independent_source_groups(server)
+    lines.append("[sources]")
+    lines.append(
+        f"  tags: {', '.join(server.get('sources', [])) or '(none)'}"
+    )
+    lines.append(
+        f"  independent groups: {', '.join(groups) or '(none)'}"
+    )
+
+    quality = server.get("quality", {})
+    lines.append("[quality]")
+    lines.append(
+        f"  overall={quality.get('overall')} "
+        f"softether={quality.get('softether')} "
+        f"openvpn={quality.get('openvpn')} "
+        f"sstp={quality.get('sstp')} l2tp={quality.get('l2tp')}"
+    )
+
+    confidence = compute_confidence(server)
+    lines.append("[confidence]")
+    lines.append(
+        "  " + " ".join(
+            f"{name}={value:.2f}"
+            for name, value in confidence.items()
+        )
+    )
+
+    for name in _PROTOCOL_NAMES:
+        proto = protocols[name]
+        if name in ("softether", "openvpn"):
+            tcp = proto["tcp"]
+            udp = proto["udp"]
+            extra = ""
+            if name == "openvpn":
+                configs = [
+                    f"{c['host']}:{c['port']}({c['proto'] or '-'})"
+                    for c in proto.get("configs", [])
+                ]
+                extra = (
+                    f" configAvailable={proto['configAvailable']} "
+                    f"configs=[{', '.join(configs)}]"
+                )
+            lines.append(
+                f"[{name}] supported={proto['supported']} "
+                f"tcp(supported={tcp['supported']} port={tcp['port']}) "
+                f"udp(supported={udp['supported']} port={udp['port']})"
+                f"{extra}"
+            )
+        elif name == "l2tpIpsec":
+            lines.append(
+                f"[l2tpIpsec] supported={proto['supported']} "
+                f"port={proto['port']}"
+            )
+        else:
+            lines.append(
+                f"[{name}] supported={proto['supported']} "
+                f"hostname={proto['hostname']} port={proto['port']}"
+            )
+
+    lines.append("[performance]")
+    lines.append(
+        f"  score={perf['score']} pingMs={perf['pingMs']} "
+        f"speedMbps={perf['speedMbps']} sessions={perf['sessions']} "
+        f"uptimeDays={perf['uptimeDays']} totalUsers={perf['totalUsers']} "
+        f"totalTrafficGB={perf['totalTrafficGB']}"
+    )
+    lines.append(f"[logging] policy={server['logging']['policy']}")
+    lines.append(
+        f"[operator] name={server['operator']['name']} "
+        f"message={server['operator']['message']}"
+    )
+
+    lines.append("[field sources]")
+    field_sources = server.get("fieldSources", {})
+    if field_sources:
+        for path in sorted(field_sources):
+            lines.append(
+                f"  {path:<44} <- {', '.join(field_sources[path])}"
+            )
+    else:
+        lines.append("  (none)")
+
+    lines.append("[conflicts]")
+    conflicts = server.get("conflicts", [])
+    if conflicts:
+        for conflict in conflicts:
+            values = conflict.get("values", {})
+            rendered = " vs ".join(
+                f"{owner}={value}" for owner, value in values.items()
+            )
+            lines.append(f"  {conflict['field']}: {rendered}")
+    else:
+        lines.append("  (none)")
+
+    return "\n".join(lines)
+
+
+def run_debug_ip(target: str) -> int:
+    """CLI: --debug-ip <ip-or-hostname>. Live-collects (HTML + API +
+    mirrors), merges, then dumps the matching server's provenance."""
+    if not target:
+        print("\u274c --debug-ip requires an IP or hostname argument")
+        return 2
+
+    needle = normalize_host(target)
+
+    all_records: List[Dict[str, Any]] = []
+
+    html = fetch(MAIN_URL)
+    if html:
+        all_records.extend(parse_html(html, "html"))
+
+    api = fetch(API_URL)
+    if api:
+        all_records.extend(parse_api(api, "api"))
+
+    mirrors = discover_mirrors()[:MAX_MIRRORS]
+    for index, mirror in enumerate(mirrors, 1):
+        mirror_html = fetch(mirror)
+        if mirror_html:
+            all_records.extend(
+                parse_html(mirror_html, f"mirror_{index}")
+            )
+
+    servers = validate_servers(merge_records(all_records))
+    score_all(servers)
+
+    matches = [
+        s for s in servers
+        if s["identity"]["ip"] == target
+        or normalize_host(s["identity"]["hostname"]) == needle
+    ]
+
+    if not matches:
+        print(f"\u274c No merged server matches '{target}'")
+        return 1
+
+    for server in matches:
+        print()
+        print(format_server_debug(server))
+
+    return 0
+
+
 if __name__ == "__main__":
+    if "--debug-ip" in sys.argv:
+        _idx = sys.argv.index("--debug-ip")
+        _target = (
+            sys.argv[_idx + 1]
+            if _idx + 1 < len(sys.argv)
+            else None
+        )
+        sys.exit(run_debug_ip(_target))
+
     if "--diagnose" in sys.argv:
         _idx = sys.argv.index("--diagnose")
         _target = (

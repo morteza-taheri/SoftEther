@@ -118,6 +118,14 @@
     <string name="copy_ip">Copy IP to clipboard</string>
     <string name="copy_hostname">Copy HostName to clipboard</string>
     <string name="copied">Copied</string>
+    <string name="copy_label">Copy</string>
+    <string name="collector_debug_source">Debug collector info</string>
+    <string name="collector_debug_title">Collector debug</string>
+    <string name="collector_debug_dump">Provenance</string>
+    <string name="collector_debug_raw_html">Raw HTML</string>
+    <string name="collector_debug_raw_api">Raw API</string>
+    <string name="collector_debug_unavailable">Provenance unavailable — refresh the server list first</string>
+    <string name="collector_debug_raw_unavailable">Raw capture unavailable for this refresh</string>
     <string name="connecting_use_protocol">Connecting to VPN server use [%1$s] protocol.</string>
     <!--VPN String -->
     <string name="unknown_state">Unknown</string>

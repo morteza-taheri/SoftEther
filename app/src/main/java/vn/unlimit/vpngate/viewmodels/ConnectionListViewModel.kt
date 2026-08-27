@@ -8,6 +8,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import vn.unlimit.vpngate.App
+import vn.unlimit.vpngate.models.VPNGateConnection
 import vn.unlimit.vpngate.models.VPNGateConnectionList
 import vn.unlimit.vpngate.repository.VpnServerRepository
 import vn.unlimit.vpngate.utils.DataUtil
@@ -28,6 +29,10 @@ class ConnectionListViewModel(application: Application) : BaseViewModel(applicat
 
     private val vpnServerRepository =
         VpnServerRepository(cacheDir = application.filesDir)
+
+    /** §33: provenance dump + raw sources for the debug panel. */
+    fun debugPayload(conn: VPNGateConnection): VpnServerRepository.DebugPayload? =
+        vpnServerRepository.debugPayload(conn.ip ?: "", conn.hostName ?: "")
 
     /**
      * Mode B refresh: the app collects server data itself from the
