@@ -13,6 +13,7 @@
     <string name="show_udp_server">UDP Server</string>
     <string name="show_l2tp_server">L2TP Server</string>
     <string name="show_sstp_server">MS-SSTP Server</string>
+    <string name="show_softether_server">SoftEther SSL-VPN Server</string>
     <string name="must_check_at_least_1_protocol">You must check at least 1 server protocol to continue</string>
     <string-array name="number_filter_operator">
         <item>equal (=)</item>
@@ -349,6 +350,7 @@
     <string name="softether_vpn_udp">SoftEther VPN (UDP)</string>
     <string name="softether_vpn_udp_natt">SoftEther VPN (UDP - NAT-T)</string>
     <string name="protocol_available_port">Available on port %1$d</string>
+    <string name="protocol_available_default_port">Available on TCP %1$d (default)</string>
     <string name="protocol_not_available">Not available</string>
     <string name="softether_available">SSL-VPN Protocol</string>
     <string name="softether_not_available">Not available</string>

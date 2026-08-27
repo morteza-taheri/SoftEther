@@ -78,6 +78,13 @@
                 android:checked="true"
                 android:buttonTint="@drawable/checkbox_tint"
                 android:text="@string/show_sstp_server" />
+            <androidx.appcompat.widget.AppCompatCheckBox
+                android:id="@+id/chb_filter_softether"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:checked="true"
+                android:buttonTint="@drawable/checkbox_tint"
+                android:text="@string/show_softether_server" />
         </LinearLayout>
 
         <View

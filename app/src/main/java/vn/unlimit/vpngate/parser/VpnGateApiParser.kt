@@ -209,6 +209,18 @@ object VpnGateApiParser {
 
                 val configInfo = OpenVpnConfigParser.decode(configB64)
 
+                if (configInfo.raw.isNotEmpty()) {
+                    // App-only extension (beyond the Python oracle):
+                    // keep the FULL decoded config so the connection
+                    // layer can build a working OpenVPN profile.
+                    VpnRecords.setField(
+                        server,
+                        "protocols.openvpn.rawConfig",
+                        configInfo.raw,
+                        source,
+                    )
+                }
+
                 // Global "proto" directive can carry the transport
                 // family for remote lines that omit it (§7).
                 val globalFamilies = configInfo.protocols

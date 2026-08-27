@@ -41,6 +41,14 @@ class VPNGateConnection : Parcelable {
     val isUdpOnly: Boolean
         get() = seTcpPort <= 0 && seUdpPort > 0
 
+    /**
+     * Port to use for an MS-SSTP connection. The collected SSTP fact
+     * may carry an unknown port; the protocol-standard TCP listener
+     * 443 is the documented default (locked product decision).
+     */
+    val sstpConnectPort: Int
+        get() = if (tcpPort > 0) tcpPort else SSTP_DEFAULT_PORT
+
     private constructor(`in`: Parcel) {
         hostName = `in`.readString()
         ip = `in`.readString()
@@ -287,29 +295,6 @@ class VPNGateConnection : Parcelable {
         return this
     }
 
-    fun enrichFromHtmlServer(html: VPNGateHtmlServer) {
-        val se = html.softEther
-        if (se != null && se.tcp > 0 && seTcpPort == 0) {
-            seTcpPort = se.tcp
-        }
-        if (se != null && se.udp && seUdpPort == 0 && se.tcp > 0) {
-            seUdpPort = se.tcp
-        }
-        val ov = html.openVPN
-        if (ov != null && ov.tcp > 0 && tcpPort == 0) {
-            tcpPort = ov.tcp
-        }
-        if (ov != null && ov.udp > 0 && udpPort == 0) {
-            udpPort = ov.udp
-        }
-        if (html.l2tp && isL2TPSupport == 0) {
-            isL2TPSupport = 1
-        }
-        if (html.sstp != null && html.sstp.port > 0 && isSSTPSupport == 0) {
-            isSSTPSupport = 1
-        }
-    }
-
     val name: String
         get() = this.getName(false)
 
@@ -343,6 +328,9 @@ class VPNGateConnection : Parcelable {
     }
 
     companion object {
+        /** MS-SSTP protocol-standard listener (locked product decision). */
+        const val SSTP_DEFAULT_PORT = 443
+
         @JvmField
         val CREATOR
                 : Parcelable.Creator<VPNGateConnection> =

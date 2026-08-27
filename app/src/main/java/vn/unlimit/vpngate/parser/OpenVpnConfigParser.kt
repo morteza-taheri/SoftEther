@@ -16,6 +16,7 @@ object OpenVpnConfigParser {
         val protocols: List<String>,
         val remotes: List<OpenVpnRemote>,
         val rawPreview: String,
+        val raw: String,
     )
 
     private const val ALPHABET =
@@ -48,16 +49,16 @@ object OpenVpnConfigParser {
 
     fun decode(value: String): Decoded {
         if (value.isEmpty()) {
-            return Decoded(false, emptyList(), emptyList(), "")
+            return Decoded(false, emptyList(), emptyList(), "", "")
         }
 
         val rawBytes = decodeBase64(value)
-            ?: return Decoded(false, emptyList(), emptyList(), "")
+            ?: return Decoded(false, emptyList(), emptyList(), "", "")
 
         val raw = try {
             String(rawBytes, Charsets.UTF_8)
         } catch (e: Exception) {
-            return Decoded(false, emptyList(), emptyList(), "")
+            return Decoded(false, emptyList(), emptyList(), "", "")
         }
 
         val protocols = mutableListOf<String>()
@@ -94,6 +95,7 @@ object OpenVpnConfigParser {
             protocols = protocols,
             remotes = remotes,
             rawPreview = raw.take(500),
+            raw = raw,
         )
     }
 

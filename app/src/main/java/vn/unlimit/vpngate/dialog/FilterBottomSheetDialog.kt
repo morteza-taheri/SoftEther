@@ -46,7 +46,7 @@ class FilterBottomSheetDialog(filter: VPNGateConnectionList.Filter?) : BottomShe
     }
 
     private val applyButtonClickListener = View.OnClickListener {
-        if (!binding.chbFilterTcp.isChecked && !binding.chbFilterUdp.isChecked && !binding.chbFilterL2tp.isChecked && !binding.chbFilterSstp.isChecked) {
+        if (!binding.chbFilterTcp.isChecked && !binding.chbFilterUdp.isChecked && !binding.chbFilterL2tp.isChecked && !binding.chbFilterSstp.isChecked && !binding.chbFilterSoftether.isChecked) {
             Toast.makeText(
                 context,
                 resources.getString(R.string.must_check_at_least_1_protocol),
@@ -58,6 +58,7 @@ class FilterBottomSheetDialog(filter: VPNGateConnectionList.Filter?) : BottomShe
         mFilter.isShowUDP = binding.chbFilterUdp.isChecked
         mFilter.isShowL2TP = binding.chbFilterL2tp.isChecked
         mFilter.isShowSSTP = binding.chbFilterSstp.isChecked
+        mFilter.isShowSoftEther = binding.chbFilterSoftether.isChecked
         mFilter.ping = binding.txtPing.text.toString().toIntOrNull()
         mFilter.speed = binding.txtSpeed.text.toString().toIntOrNull()
         mFilter.sessionCount = binding.txtSession.text.toString().toIntOrNull()
@@ -93,6 +94,7 @@ class FilterBottomSheetDialog(filter: VPNGateConnectionList.Filter?) : BottomShe
         mFilter.isShowUDP.let { binding.chbFilterUdp.isChecked = mFilter.isShowUDP }
         mFilter.isShowL2TP.let { binding.chbFilterL2tp.isChecked = mFilter.isShowL2TP && Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU }
         mFilter.isShowSSTP.let { binding.chbFilterSstp.isChecked = mFilter.isShowSSTP }
+        mFilter.isShowSoftEther.let { binding.chbFilterSoftether.isChecked = mFilter.isShowSoftEther }
         mFilter.ping?.let { binding.txtPing.setText(it.toString()) }
         mFilter.speed?.let { binding.txtSpeed.setText(it.toString()) }
         mFilter.sessionCount?.let { binding.txtSession.setText(it.toString()) }

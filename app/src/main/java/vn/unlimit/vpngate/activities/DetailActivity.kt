@@ -929,7 +929,10 @@ class DetailActivity : AppCompatActivity(), View.OnClickListener, VpnStatus.Stat
             )
             putString(OscPrefKey.HOME_USERNAME.toString(), "vpn")
             putString(OscPrefKey.HOME_PASSWORD.toString(), "vpn")
-            putString(OscPrefKey.SSL_PORT.toString(), mVpnGateConnection!!.tcpPort.toString())
+            putString(
+                OscPrefKey.SSL_PORT.toString(),
+                mVpnGateConnection!!.sstpConnectPort.toString()
+            )
             putStringSet(OscPrefKey.ROUTE_EXCLUDED_APPS.toString(), excludedPackageNames)
             putBoolean(OscPrefKey.PPP_IPv6_ENABLED.toString(), true)
             putString(OscPrefKey.HOME_ULA_V6.toString(), Ipv6Ula.getOrDerive(this@DetailActivity))

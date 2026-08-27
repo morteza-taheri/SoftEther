@@ -16,13 +16,16 @@ class VPNGateConnectionList : Parcelable {
     var filter: Filter? = null
     var mKeyword: String? = null
     private var data: MutableList<VPNGateConnection>?
-    private var vpnGateItemDao: VPNGateItemDao? = null
+    // Resolved lazily: in-memory lists (collector output, unit tests)
+    // must work without the Android Application singleton; only the
+    // DB-backed sort/filter paths touch the DAO.
+    private val vpnGateItemDao: VPNGateItemDao?
+        get() = App.instance?.vpnGateItemDao
     private var sortField: String? = null
     private var sortType: Int? = null
 
     constructor() {
         data = ArrayList()
-        vpnGateItemDao = App.instance!!.vpnGateItemDao
     }
 
     private constructor(`in`: Parcel) {
@@ -167,6 +170,12 @@ class VPNGateConnectionList : Parcelable {
         if (filter?.isShowSSTP == true) {
             whereQuery = appendQuery(whereQuery, "isSSTPSupport = 1")
         }
+        if (filter?.isShowSoftEther == true) {
+            whereQuery = appendQuery(
+                whereQuery,
+                "(seTcpPort > 0 OR seUdpPort > 0)"
+            )
+        }
         return whereQuery
     }
 
@@ -236,6 +245,7 @@ class VPNGateConnectionList : Parcelable {
         var isShowUDP: Boolean = true
         var isShowL2TP: Boolean = true
         var isShowSSTP: Boolean = true
+        var isShowSoftEther: Boolean = true
         var ping: Int? = null
         var pingFilterOperator: NumberFilterOperator = NumberFilterOperator.LESS_OR_EQUAL
         var speed: Int? = null

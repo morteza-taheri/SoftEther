@@ -136,11 +136,19 @@ class VpnProtocolSelectionDialog : BottomSheetDialogFragment() {
             binding.cardOpenVpnUdp.visibility = View.GONE
         }
 
-        // Configure MS-SSTP option
-        val hasSstp = sstpSupport && tcpPort > 0
-        if (hasSstp) {
+        // Configure MS-SSTP option. Supported whenever the server
+        // exposes SSTP (locked decision: even without a printed port,
+        // the protocol-standard TCP 443 default applies).
+        if (sstpSupport) {
             binding.cardMsSstp.visibility = View.VISIBLE
-            binding.txtMsSstpStatus.text = getString(R.string.protocol_available_port, tcpPort)
+            binding.txtMsSstpStatus.text = if (tcpPort > 0) {
+                getString(R.string.protocol_available_port, tcpPort)
+            } else {
+                getString(
+                    R.string.protocol_available_default_port,
+                    VPNGateConnection.SSTP_DEFAULT_PORT
+                )
+            }
         } else {
             binding.cardMsSstp.visibility = View.GONE
         }
