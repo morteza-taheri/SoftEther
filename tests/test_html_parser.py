@@ -297,6 +297,18 @@ def test_7_softether_udp_only_never_borrows_openvpn_tcp(
     )
 
 
+def test_operator_by_prefix_stripped(servers):
+    """The operator cell prints 'By <name>'; the 'By ' prefix must
+    be stripped (was broken by a double-escaped regex)."""
+    server = servers.get("public-vpn-206.opengw.net")
+    assert server is not None
+
+    name = server["operator"]["name"]
+
+    assert name == "Daiyuu Nobori, Japan. Academic Use Only."
+    assert not re.match(r"^by\s", name, re.I)
+
+
 def test_column_map_derived_not_hardcoded(fixture_html):
     soup = BeautifulSoup(fixture_html, "html.parser")
     table = vg.select_hosts_table(vg.find_hosts_tables(soup))

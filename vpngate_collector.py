@@ -894,276 +894,9 @@ def parse_sstp(value: str) -> Tuple[bool, str, Optional[int]]:
     return True, host, port
 
 
-def parse_html_protocols(
-    row_text: str,
-    server: Dict[str, Any],
-    source: str
-) -> None:
-    """
-    Parse protocol sections from the actual row text.
-
-    The current VPN Gate row is ordered approximately as:
-        SSL-VPN
-        TCP: xxxx
-        UDP: Supported
-        L2TP/IPsec
-        OpenVPN
-        TCP: xxxx
-        UDP: xxxx
-        MS-SSTP
-        SSTP Hostname: host[:port]
-    """
-
-    text = clean(row_text)
-
-    # --------------------------------------------------------
-    # SoftEther / SSL-VPN
-    # --------------------------------------------------------
-
-    soft_match = re.search(
-        r"SSL-VPN.*?"
-        r"(?:TCP:\s*(\d+))?"
-        r".{0,120}?"
-        r"(?:UDP:\s*Supported)?",
-        text,
-        re.IGNORECASE
-    )
-
-    if soft_match:
-        tcp = to_int(
-            soft_match.group(1)
-        )
-
-        if valid_port(tcp):
-            set_field(
-                server,
-                "protocols.softether.tcp.supported",
-                True,
-                source
-            )
-            set_field(
-                server,
-                "protocols.softether.tcp.port",
-                tcp,
-                source
-            )
-
-        if re.search(
-            r"SSL-VPN.*?UDP:\s*Supported",
-            text,
-            re.IGNORECASE
-        ):
-            set_field(
-                server,
-                "protocols.softether.udp.supported",
-                True,
-                source
-            )
-
-        mark_supported(
-            server,
-            "softether",
-            source
-        )
-
-    # --------------------------------------------------------
-    # L2TP/IPsec
-    # --------------------------------------------------------
-
-    if re.search(
-        r"L2TP/IPsec",
-        text,
-        re.IGNORECASE
-    ):
-        mark_supported(
-            server,
-            "l2tpIpsec",
-            source
-        )
-
-        set_field(
-            server,
-            "protocols.l2tpIpsec.port",
-            1701,
-            source
-        )
-
-    # --------------------------------------------------------
-    # OpenVPN section
-    # --------------------------------------------------------
-
-    ovpn_match = re.search(
-        r"OpenVPN.*?"
-        r"(.*?)(?=MS-SSTP|SSTP Hostname|$)",
-        text,
-        re.IGNORECASE
-    )
-
-    ovpn_section = (
-        ovpn_match.group(1)
-        if ovpn_match
-        else ""
-    )
-
-    tcp_values = [
-        to_int(v)
-        for v in re.findall(
-            r"TCP:\s*(\d+)",
-            ovpn_section,
-            re.IGNORECASE
-        )
-    ]
-
-    udp_values = [
-        to_int(v)
-        for v in re.findall(
-            r"UDP:\s*(\d+)",
-            ovpn_section,
-            re.IGNORECASE
-        )
-    ]
-
-    if tcp_values:
-        port = next(
-            (p for p in tcp_values if valid_port(p)),
-            None
-        )
-
-        if port:
-            mark_supported(
-                server,
-                "openvpn",
-                source
-            )
-            set_field(
-                server,
-                "protocols.openvpn.tcp.supported",
-                True,
-                source
-            )
-            set_field(
-                server,
-                "protocols.openvpn.tcp.port",
-                port,
-                source
-            )
-
-    if udp_values:
-        port = next(
-            (p for p in udp_values if valid_port(p)),
-            None
-        )
-
-        if port:
-            mark_supported(
-                server,
-                "openvpn",
-                source
-            )
-            set_field(
-                server,
-                "protocols.openvpn.udp.supported",
-                True,
-                source
-            )
-            set_field(
-                server,
-                "protocols.openvpn.udp.port",
-                port,
-                source
-            )
-
-    # Presence of the OpenVPN config link is also useful.
-    if re.search(
-        r"OpenVPN\s*Config\s*file",
-        text,
-        re.IGNORECASE
-    ):
-        mark_supported(
-            server,
-            "openvpn",
-            source
-        )
-        set_field(
-            server,
-            "protocols.openvpn.configAvailable",
-            True,
-            source
-        )
-
-    # --------------------------------------------------------
-    # SSTP
-    # --------------------------------------------------------
-
-    supported, host, port = parse_sstp(
-        text
-    )
-
-    if supported:
-        mark_supported(
-            server,
-            "sstp",
-            source
-        )
-
-        set_field(
-            server,
-            "protocols.sstp.hostname",
-            host,
-            source
-        )
-
-        if valid_port(port):
-            set_field(
-                server,
-                "protocols.sstp.port",
-                port,
-                source
-            )
-
-
 # ============================================================
 # HTML SERVER ROW
 # ============================================================
-
-def extract_country_from_row(
-    row_text: str,
-    hostname: str,
-    isp_hostname: str
-) -> str:
-    """
-    Country is the text appearing before the DDNS hostname.
-    This avoids depending on flag-image alt text.
-    """
-    text = clean(row_text)
-
-    if hostname:
-        idx = text.lower().find(
-            hostname.lower()
-        )
-
-        if idx > 0:
-            prefix = text[:idx].strip()
-
-            # Usually country is the last meaningful word(s)
-            # before hostname and can be one or more words.
-            # Remove common image/link artifacts.
-            prefix = re.sub(
-                r"\b(?:country|physical location)\b",
-                "",
-                prefix,
-                flags=re.IGNORECASE
-            ).strip()
-
-            if prefix:
-                # Keep a compact country candidate.
-                # Country names may contain spaces.
-                parts = prefix.split()
-                if len(parts) <= 5:
-                    return " ".join(parts[-5:])
-
-    return ""
-
 
 def parse_html(
     html: str,
@@ -1615,7 +1348,7 @@ def parse_html(
         if op_cell is not None:
             operator = clean(op_cell.get_text(" ", strip=True))
             operator = re.sub(
-                r"^by\\s+", "", operator, flags=re.I
+                r"^by\s+", "", operator, flags=re.I
             )
 
             if operator:
@@ -2552,6 +2285,7 @@ def _export_server(server: Dict[str, Any]) -> Dict[str, Any]:
         "openVPN": {
             "tcp": port_or_zero(openvpn["tcp"]["port"]),
             "udp": port_or_zero(openvpn["udp"]["port"]),
+            "configs": deepcopy(openvpn.get("configs", [])),
         },
         "l2tp": bool(protocols["l2tpIpsec"]["supported"]),
         "sstp": {
@@ -2562,6 +2296,8 @@ def _export_server(server: Dict[str, Any]) -> Dict[str, Any]:
         "sourceCount": int(len(server.get("sources", []))),
         "valid": bool(server.get("valid", True)),
         "qualityScore": to_int(quality.get("overall")),
+        "confidence": compute_confidence(server),
+        "conflicts": deepcopy(server.get("conflicts", [])),
     }
 
 
@@ -2601,6 +2337,32 @@ def save_json(
 
     print(
         f"\U0001f4be JSON saved: {filename} ({len(exported)} servers)"
+    )
+
+
+def save_report(
+    filename: str,
+    report: Dict[str, Any]
+):
+    """Write the collection report as-is via plain ``json.dump``.
+
+    The report has no ``identity``/``protocols`` shape, so it must
+    never go through ``_export_server`` / ``save_json``.
+    """
+    with open(
+        filename,
+        "w",
+        encoding="utf-8"
+    ) as f:
+        json.dump(
+            report,
+            f,
+            ensure_ascii=False,
+            indent=2
+        )
+
+    print(
+        f"\U0001f4be Report saved: {filename}"
     )
 
 
@@ -2646,6 +2408,12 @@ def save_csv(
         "qualitySstp",
         "qualityL2tp",
 
+        "confidenceSoftether",
+        "confidenceOpenvpn",
+        "confidenceSstp",
+        "confidenceL2tp",
+        "conflictCount",
+
         "sourceCount",
         "sources"
     ]
@@ -2670,6 +2438,7 @@ def save_csv(
             m = s["performance"]
             p = s["protocols"]
             q = s["quality"]
+            conf = compute_confidence(s)
 
             writer.writerow({
                 "hostname": i["hostname"],
@@ -2724,6 +2493,17 @@ def save_csv(
                     q["sstp"],
                 "qualityL2tp":
                     q["l2tp"],
+
+                "confidenceSoftether":
+                    conf["softether"],
+                "confidenceOpenvpn":
+                    conf["openvpn"],
+                "confidenceSstp":
+                    conf["sstp"],
+                "confidenceL2tp":
+                    conf["l2tpIpsec"],
+                "conflictCount":
+                    len(s.get("conflicts", [])),
 
                 "sourceCount":
                     s["sourceCount"],
@@ -2809,6 +2589,81 @@ def protocol_counts(
     }
 
 
+def build_provenance_summary(
+    servers: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """Aggregate §14/§15/§38 visibility: conflicts, per-protocol
+    confidence distribution and independent-group statistics."""
+    field_conflicts: Dict[str, int] = {}
+    total_conflicts = 0
+    servers_with_conflicts = 0
+
+    confidence_buckets: Dict[str, Dict[str, int]] = {
+        name: {} for name in _PROTOCOL_NAMES
+    }
+
+    group_histogram: Dict[int, int] = {}
+    group_membership: Dict[str, int] = {}
+
+    for server in servers:
+        conflicts = server.get("conflicts") or []
+
+        if conflicts:
+            servers_with_conflicts += 1
+
+        total_conflicts += len(conflicts)
+
+        for item in conflicts:
+            field = item.get("field", "")
+            field_conflicts[field] = (
+                field_conflicts.get(field, 0) + 1
+            )
+
+        for name, value in compute_confidence(server).items():
+            bucket = f"{value:.2f}"
+            counts = confidence_buckets[name]
+            counts[bucket] = counts.get(bucket, 0) + 1
+
+        groups = independent_source_groups(server)
+
+        group_histogram[len(groups)] = (
+            group_histogram.get(len(groups), 0) + 1
+        )
+
+        for group in groups:
+            group_membership[group] = (
+                group_membership.get(group, 0) + 1
+            )
+
+    top_fields = sorted(
+        field_conflicts.items(),
+        key=lambda x: x[1],
+        reverse=True,
+    )[:10]
+
+    return {
+        "conflictCount": total_conflicts,
+        "serversWithConflicts": servers_with_conflicts,
+        "topConflictingFields": [
+            {"field": field, "count": count}
+            for field, count in top_fields
+        ],
+        "confidenceDistribution": {
+            name: dict(sorted(counts.items()))
+            for name, counts in confidence_buckets.items()
+        },
+        "independentGroups": {
+            "distribution": {
+                str(size): count
+                for size, count in sorted(group_histogram.items())
+            },
+            "serversPerGroup": dict(
+                sorted(group_membership.items())
+            ),
+        },
+    }
+
+
 def build_report(
     servers: List[Dict[str, Any]],
     mirrors: List[str],
@@ -2839,6 +2694,9 @@ def build_report(
         "uniqueServers": len(servers),
         "mirrorsDiscovered": len(mirrors),
         "protocolCounts": protocol_counts(
+            servers
+        ),
+        "provenance": build_provenance_summary(
             servers
         ),
         "countries": dict(
@@ -3212,9 +3070,12 @@ def main():
         len(all_records)
     )
 
-    save_json(
+    # The report is NOT a server record: it must never be routed
+    # through save_json/_export_server (that crashed with KeyError
+    # on "identity" and the report was never written).
+    save_report(
         OUT_REPORT,
-        [report]
+        report
     )
 
     # --------------------------------------------------------

@@ -20,7 +20,17 @@ nohup.out
 # vpngate_collector.py outputs
 servers_all.json
 servers_softether.json
+servers_openvpn.json
+servers_sstp.json
+servers_l2tp.json
+servers_multiprotocol.json
+servers_ranked.json
+servers_softether_ranked.json
+servers_openvpn_ranked.json
+servers_sstp_ranked.json
+servers_l2tp_ranked.json
 servers.csv
+collection_report.json
 __pycache__/
 .pytest_cache/
 
