@@ -16,3 +16,11 @@ app/release/
 /app/google-services.json
 .kotlin/
 nohup.out
+
+# vpngate_collector.py outputs
+servers_all.json
+servers_softether.json
+servers.csv
+__pycache__/
+.pytest_cache/
+

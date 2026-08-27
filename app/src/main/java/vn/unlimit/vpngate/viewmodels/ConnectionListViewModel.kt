@@ -11,6 +11,7 @@ import vn.unlimit.vpngate.App
 import vn.unlimit.vpngate.api.VPNGateApiService
 import vn.unlimit.vpngate.models.VPNGateConnection
 import vn.unlimit.vpngate.models.VPNGateConnectionList
+import vn.unlimit.vpngate.models.VPNGateHtmlServer
 import vn.unlimit.vpngate.utils.AppConfig
 import vn.unlimit.vpngate.utils.DataUtil
 import java.io.BufferedReader
@@ -88,6 +89,7 @@ class ConnectionListViewModel(application: Application) : BaseViewModel(applicat
                     isLoading.postValue(false)
                     getAPIData()
                 } else {
+                    enrichWithHtmlJson(connectionList)
                     vpnGateConnectionList.value = connectionList
                     val items = connectionList.toVPNGateItems()
                     withContext(Dispatchers.IO) {
@@ -104,6 +106,39 @@ class ConnectionListViewModel(application: Application) : BaseViewModel(applicat
             } finally {
                 isLoading.postValue(false)
             }
+        }
+    }
+
+    private suspend fun enrichWithHtmlJson(connectionList: VPNGateConnectionList) {
+        val jsonUrl = AppConfig.getString("vpn_html_servers_json")
+        if (jsonUrl.isEmpty()) {
+            return
+        }
+        try {
+            val json = vpnGateApiService.getJsonString(jsonUrl)
+            val htmlServers = VPNGateHtmlServer.parseHtmlJson(json)
+            if (htmlServers.isEmpty()) {
+                Log.w(TAG, "HTML JSON returned no servers")
+                return
+            }
+            val byKey = hashMapOf<String, VPNGateConnection>()
+            for (i in 0 until connectionList.size()) {
+                val conn = connectionList.get(i)
+                conn.hostName?.lowercase()?.let { byKey[it] = conn }
+                conn.ip?.lowercase()?.let { byKey[it] = conn }
+            }
+            var matched = 0
+            for (html in htmlServers) {
+                val key = html.hostname?.lowercase() ?: continue
+                val conn = byKey[key] ?: run {
+                    html.ip?.lowercase()?.let { byKey[it] }
+                } ?: continue
+                conn.enrichFromHtmlServer(html)
+                matched++
+            }
+            Log.i(TAG, "Enriched $matched of ${connectionList.size()} servers from HTML JSON")
+        } catch (e: Exception) {
+            Log.w(TAG, "HTML JSON enrichment failed, continuing with CSV-only data", e)
         }
     }
 }

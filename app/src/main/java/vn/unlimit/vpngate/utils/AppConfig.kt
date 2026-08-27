@@ -19,6 +19,7 @@ object AppConfig {
             "vpn_check_ip_url" -> "https://whatismyipaddress.com/"
             "vpn_paid_server_api" -> "https://www.vpngate.net/api/"
             "vpn_import_open_vpn" -> "false"
+            "vpn_html_servers_json" -> "https://raw.githubusercontent.com/morteza-taheri/SoftEther/master/servers_all.json"
             "vpn_header_session_name" -> "vpn_header_session_name"
             else -> ""
         }

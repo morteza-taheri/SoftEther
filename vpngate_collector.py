@@ -2,35 +2,40 @@
 # -*- coding: utf-8 -*-
 
 """
-VPN Gate Intelligent Server Collector
-=====================================
+VPN Gate Intelligent Multi-Protocol Collector V4
+=================================================
 
 Sources:
-    1. VPN Gate main HTML
-    2. VPN Gate API / CSV
-    3. VPN Gate official mirrors
+  - VPN Gate HTML
+  - VPN Gate iPhone CSV API
+  - Official VPN Gate mirrors
 
-Features:
-    - Multi-source collection
-    - Automatic mirror discovery
-    - HTML parsing
-    - VPN Gate API CSV parsing
-    - Smart duplicate detection
-    - Intelligent record merging
-    - IP / port validation
-    - Protocol normalization
-    - Server quality scoring
-    - JSON / CSV export
-    - SoftEther-only export
-    - Source tracking
+Protocols:
+  - SoftEther SSL-VPN
+  - OpenVPN TCP / UDP
+  - L2TP/IPsec
+  - MS-SSTP
 
-Designed for:
-    VpnM / VpnM_Pro / SoftEther Android projects
+Outputs:
+  servers_all.json
+  servers_softether.json
+  servers_openvpn.json
+  servers_sstp.json
+  servers_l2tp.json
+  servers_multiprotocol.json
+  servers_ranked.json
+  servers_softether_ranked.json
+  servers_openvpn_ranked.json
+  servers_sstp_ranked.json
+  servers_l2tp_ranked.json
+  servers.csv
+  collection_report.json
 
-Requirements:
-    pip install requests beautifulsoup4
+Dependencies:
+  pip install requests beautifulsoup4
 """
 
+import base64
 import csv
 import io
 import json
@@ -38,89 +43,97 @@ import re
 import socket
 import time
 from copy import deepcopy
-from typing import Dict, List, Optional, Tuple
-from urllib.parse import urljoin, urlparse
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, Tuple
+from urllib.parse import urlparse
 
 import requests
 from bs4 import BeautifulSoup
 
 
 # ============================================================
-# Configuration
+# CONFIG
 # ============================================================
 
 MAIN_URL = "https://www.vpngate.net/en/"
 API_URL = "https://www.vpngate.net/api/iphone/"
-MIRROR_LIST_URL = "https://www.vpngate.net/en/sites.aspx"
-
-OUTPUT_ALL_JSON = "servers_all.json"
-OUTPUT_SOFTETHER_JSON = "servers_softether.json"
-OUTPUT_CSV = "servers.csv"
+MIRRORS_URL = "https://www.vpngate.net/en/sites.aspx"
 
 REQUEST_TIMEOUT = 30
+REQUEST_DELAY = 0.7
+MAX_MIRRORS = 10
+
+OUT_ALL = "servers_all.json"
+OUT_SOFTETHER = "servers_softether.json"
+OUT_OPENVPN = "servers_openvpn.json"
+OUT_SSTP = "servers_sstp.json"
+OUT_L2TP = "servers_l2tp.json"
+OUT_MULTI = "servers_multiprotocol.json"
+OUT_RANKED = "servers_ranked.json"
+OUT_SOFTETHER_RANKED = "servers_softether_ranked.json"
+OUT_OPENVPN_RANKED = "servers_openvpn_ranked.json"
+OUT_SSTP_RANKED = "servers_sstp_ranked.json"
+OUT_L2TP_RANKED = "servers_l2tp_ranked.json"
+OUT_CSV = "servers.csv"
+OUT_REPORT = "collection_report.json"
 
 HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
         "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/139.0 Safari/537.36"
+        "Chrome/145.0 Safari/537.36"
     ),
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-    "Accept-Language": "en-US,en;q=0.8",
+    "Accept": (
+        "text/html,application/xhtml+xml,application/xml;"
+        "q=0.9,*/*;q=0.8"
+    ),
+    "Accept-Language": "en-US,en;q=0.9",
     "Connection": "keep-alive",
 }
-
-# We don't want to hammer VPN Gate or mirrors.
-REQUEST_DELAY = 0.5
 
 session = requests.Session()
 session.headers.update(HEADERS)
 
 
 # ============================================================
-# Utility
+# GENERIC HELPERS
 # ============================================================
 
-def clean(value) -> str:
+def clean(value: Any) -> str:
     if value is None:
         return ""
+    s = str(value)
+    s = (
+        s.replace("\xa0", " ")
+         .replace("\u200b", "")
+         .replace("\r", " ")
+         .replace("\n", " ")
+    )
+    return re.sub(r"\s+", " ", s).strip()
 
-    return str(value).strip()
 
-
-def safe_int(value, default=0) -> int:
+def to_int(value: Any, default: int = 0) -> int:
+    if value is None:
+        return default
+    s = clean(value).replace(",", "").replace(" ", "")
+    m = re.search(r"-?\d+", s)
+    if not m:
+        return default
     try:
-        if value is None or value == "":
-            return default
-
-        value = str(value).replace(",", "").strip()
-
-        # Handle values such as "93 days"
-        match = re.search(r"-?\d+", value)
-
-        if not match:
-            return default
-
-        return int(match.group(0))
-
+        return int(m.group(0))
     except Exception:
         return default
 
 
-def safe_float(value, default=0.0) -> float:
+def to_float(value: Any, default: float = 0.0) -> float:
+    if value is None:
+        return default
+    s = clean(value).replace(",", "").replace(" ", "")
+    m = re.search(r"-?\d+(?:\.\d+)?", s)
+    if not m:
+        return default
     try:
-        if value is None or value == "":
-            return default
-
-        value = str(value).replace(",", "").strip()
-
-        match = re.search(r"-?\d+(?:\.\d+)?", value)
-
-        if not match:
-            return default
-
-        return float(match.group(0))
-
+        return float(m.group(0))
     except Exception:
         return default
 
@@ -129,383 +142,620 @@ def valid_ip(ip: str) -> bool:
     try:
         socket.inet_aton(ip)
         parts = ip.split(".")
-
         return (
             len(parts) == 4
-            and all(0 <= int(x) <= 255 for x in parts)
+            and all(p.isdigit() and 0 <= int(p) <= 255 for p in parts)
         )
-
     except Exception:
         return False
 
 
-def valid_port(port) -> bool:
+def normalize_ip(value: Any) -> str:
+    s = clean(value)
+    m = re.search(r"\b(?:\d{1,3}\.){3}\d{1,3}\b", s)
+    if not m:
+        return ""
+    ip = m.group(0)
+    return ip if valid_ip(ip) else ""
+
+
+def normalize_host(value: Any) -> str:
+    s = clean(value).lower().rstrip(".")
+    # Remove protocol prefix if accidentally present.
+    s = re.sub(r"^[a-z]+://", "", s)
+    # Host:port -> host, except IPv4.
+    if s.count(":") == 1 and not valid_ip(s):
+        s = s.rsplit(":", 1)[0]
+    return s
+
+
+def valid_port(port: Any) -> bool:
+    p = to_int(port)
+    return 1 <= p <= 65535
+
+
+def source_add(server: Dict[str, Any], source: str) -> None:
+    """Record a provenance tag on a server record.
+
+    Tolerant towards stripped/imported records that lack the
+    ``sources`` container (mission §16 mirror handling).
+    """
+    if not source:
+        return
+
+    sources = server.setdefault("sources", [])
+
+    if source not in sources:
+        sources.append(source)
+        sources.sort()
+
+    server["sourceCount"] = len(sources)
+
+
+def new_server() -> Dict[str, Any]:
+    return {
+        "schemaVersion": "4.0",
+
+        "identity": {
+            "hostname": "",
+            "ip": "",
+            "ispHostname": "",
+            "country": "",
+            "countryLong": "",
+        },
+
+        "performance": {
+            "score": 0,
+            "pingMs": 0,
+            "speedMbps": 0.0,
+            "sessions": 0,
+            "uptimeDays": 0.0,
+            "totalUsers": 0,
+            "totalTrafficGB": 0.0,
+        },
+
+        "logging": {
+            "policy": ""
+        },
+
+        "operator": {
+            "name": "",
+            "message": ""
+        },
+
+        "protocols": {
+            "softether": {
+                "supported": False,
+                "tcp": {
+                    "supported": False,
+                    "port": None
+                },
+                "udp": {
+                    "supported": False,
+                    "port": None
+                }
+            },
+
+            "openvpn": {
+                "supported": False,
+                "tcp": {
+                    "supported": False,
+                    "port": None
+                },
+                "udp": {
+                    "supported": False,
+                    "port": None
+                },
+                "configAvailable": False,
+                "configs": []
+            },
+
+            "l2tpIpsec": {
+                "supported": False,
+                "port": None
+            },
+
+            "sstp": {
+                "supported": False,
+                "hostname": "",
+                "port": None
+            }
+        },
+
+        "sources": [],
+        "sourceCount": 0,
+
+        "fieldSources": {},
+
+        "quality": {
+            "overall": 0,
+            "softether": 0,
+            "openvpn": 0,
+            "sstp": 0,
+            "l2tp": 0
+        },
+
+        "valid": True
+    }
+
+
+def set_field(
+    server: Dict[str, Any],
+    path: str,
+    value: Any,
+    source: str,
+    overwrite: bool = False
+) -> None:
+    """
+    Set a nested field and remember which source supplied it.
+    Empty values do not overwrite meaningful values.
+    """
+    if value in (None, "", False, 0, 0.0, []):
+        return
+
+    parts = path.split(".")
+    obj = server
+
+    for part in parts[:-1]:
+        obj = obj[part]
+
+    leaf = parts[-1]
+
+    old = obj.get(leaf)
+
+    if overwrite or old in (None, "", False, 0, 0.0, []):
+        obj[leaf] = value
+
+    sources = server["fieldSources"].setdefault(
+        path, []
+    )
+
+    if source not in sources:
+        sources.append(source)
+
+
+def mark_supported(
+    server: Dict[str, Any],
+    protocol: str,
+    source: str
+) -> None:
+    path = f"protocols.{protocol}.supported"
+    set_field(server, path, True, source)
+
+
+# ============================================================
+# HTTP
+# ============================================================
+
+def fetch(url: str) -> Optional[str]:
+    print(f"🌐 GET {url}")
     try:
-        p = int(port)
-        return 1 <= p <= 65535
-    except Exception:
-        return False
-
-
-def normalize_hostname(hostname: str) -> str:
-    hostname = clean(hostname).lower()
-
-    if ":" in hostname:
-        hostname = hostname.split(":")[0]
-
-    return hostname
-
-
-def normalize_ip(ip: str) -> str:
-    return clean(ip)
-
-
-def request_text(url: str) -> Optional[str]:
-
-    try:
-
-        print(f"🌐 GET {url}")
-
         response = session.get(
             url,
             timeout=REQUEST_TIMEOUT,
+            allow_redirects=True
         )
-
         response.raise_for_status()
 
-        time.sleep(REQUEST_DELAY)
+        print(
+            f"   HTTP {response.status_code} | "
+            f"{len(response.content):,} bytes | "
+            f"final={response.url}"
+        )
 
+        time.sleep(REQUEST_DELAY)
         return response.text
 
-    except requests.RequestException as e:
-
-        print(f"❌ Request failed: {url}")
-        print(f"   {e}")
-
+    except requests.RequestException as exc:
+        print(f"   ❌ Request failed: {exc}")
         return None
 
 
 # ============================================================
-# Empty Server Structure
+# API CSV
 # ============================================================
 
-def new_server() -> Dict:
+def find_api_header(lines: List[str]) -> int:
+    """
+    VPN Gate /api/iphone/ currently starts with:
+        *vpn_servers
+        #HostName,IP,...
+    """
+    for i, line in enumerate(lines):
+        if re.match(r"^\s*#?HostName\s*,", line):
+            return i
+    return -1
 
-    return {
-        "hostname": "",
-        "ip": "",
 
-        "country": "",
-        "countryLong": "",
+def decode_openvpn_config(
+    value: str
+) -> Dict[str, Any]:
+    """
+    Decode OpenVPN_ConfigData_Base64 and inspect remote/proto.
 
-        "sessions": 0,
-        "uptime": 0,
-        "totalUsers": 0,
-
-        "score": 0,
-        "ping": 0,
-        "speed": 0,
-
-        "softEther": {
-            "tcp": 0,
-            "udp": False
-        },
-
-        "openVPN": {
-            "tcp": 0,
-            "udp": 0
-        },
-
-        "l2tp": False,
-
-        "sstp": {
-            "host": "",
-            "port": 0
-        },
-
-        "sources": [],
-
-        "sourceCount": 0,
-
-        "valid": True,
-
-        "qualityScore": 0
+    VPN Gate publishes the OpenVPN configuration as Base64.
+    We do not assume TCP/UDP ports; we read remote/proto
+    directives from the actual configuration when available.
+    """
+    result = {
+        "decoded": False,
+        "protocols": [],
+        "remotes": [],
+        "rawPreview": ""
     }
 
-
-# ============================================================
-# VPN Gate HTML
-# ============================================================
-
-def parse_vpngate_html(html: str, source_name="html") -> List[Dict]:
-
-    servers = []
-
-    # --------------------------------------------------------
-    # Method 1:
-    # JavaScript vg_hosts_list
-    # --------------------------------------------------------
-
-    pattern = r"var\s+vg_hosts_list\s*=\s*(\[[\s\S]*?\]);"
-
-    match = re.search(pattern, html)
-
-    if match:
-
-        js_data = match.group(1)
-
-        # Convert simple JS syntax to JSON
-        js_data = re.sub(
-            r"\bundefined\b",
-            "null",
-            js_data
-        )
-
-        js_data = re.sub(
-            r"\bnull\b",
-            "null",
-            js_data
-        )
-
-        js_data = re.sub(
-            r",\s*([}\]])",
-            r"\1",
-            js_data
-        )
-
-        try:
-
-            raw = json.loads(js_data)
-
-            print(
-                f"   ✅ vg_hosts_list: {len(raw)} rows"
-            )
-
-            for row in raw:
-
-                if not isinstance(row, list):
-                    continue
-
-                if len(row) < 21:
-                    continue
-
-                s = new_server()
-
-                s["hostname"] = clean(row[0])
-                s["ip"] = clean(row[1])
-
-                s["country"] = clean(row[2])
-                s["countryLong"] = clean(row[3])
-
-                s["uptime"] = safe_int(row[4])
-                s["totalUsers"] = safe_int(row[5])
-
-                s["softEther"]["tcp"] = (
-                    safe_int(row[14])
-                    if safe_int(row[14]) > 0
-                    else 0
-                )
-
-                s["softEther"]["udp"] = (
-                    clean(row[15]) not in (
-                        "",
-                        "0",
-                        "None",
-                        "null"
-                    )
-                )
-
-                s["openVPN"]["tcp"] = safe_int(row[16])
-                s["openVPN"]["udp"] = safe_int(row[17])
-
-                s["sstp"]["host"] = clean(row[18])
-                s["sstp"]["port"] = safe_int(row[19])
-
-                s["l2tp"] = (
-                    clean(row[20]) not in (
-                        "",
-                        "0",
-                        "None",
-                        "null"
-                    )
-                )
-
-                s["sources"].append(source_name)
-
-                servers.append(s)
-
-        except Exception as e:
-
-            print(
-                f"   ⚠️ vg_hosts_list parsing failed: {e}"
-            )
-
-    # --------------------------------------------------------
-    # Method 2:
-    # HTML table fallback
-    # --------------------------------------------------------
-
-    if not servers:
-
-        print("   🔄 Trying HTML table parser...")
-
-        soup = BeautifulSoup(
-            html,
-            "html.parser"
-        )
-
-        tables = soup.find_all("table")
-
-        for table in tables:
-
-            rows = table.find_all("tr")
-
-            for row in rows:
-
-                cells = row.find_all(
-                    ["td", "th"]
-                )
-
-                text = [
-                    clean(c.get_text(" ", strip=True))
-                    for c in cells
-                ]
-
-                if not text:
-                    continue
-
-                # Look for an IP
-                ip = ""
-
-                for value in text:
-
-                    candidate = value.split()[0]
-
-                    if valid_ip(candidate):
-
-                        ip = candidate
-                        break
-
-                if not ip:
-                    continue
-
-                s = new_server()
-
-                s["ip"] = ip
-
-                # Find hostname
-                for value in text:
-
-                    if (
-                        "opengw.net" in value.lower()
-                        or "vpngate" in value.lower()
-                    ):
-
-                        host = value.split()[0]
-
-                        if host:
-                            s["hostname"] = host
-                            break
-
-                s["sources"].append(source_name)
-
-                servers.append(s)
-
-    print(
-        f"   📦 Parsed HTML servers: {len(servers)}"
-    )
-
-    return servers
-
-
-# ============================================================
-# VPN Gate API CSV
-# ============================================================
-
-def parse_vpngate_api(csv_text: str) -> List[Dict]:
-
-    servers = []
-
-    lines = csv_text.splitlines()
-
-    # Remove comments
-    data_lines = [
-        line
-        for line in lines
-        if not line.startswith("#")
-    ]
-
-    if not data_lines:
-        return []
+    if not value:
+        return result
 
     try:
+        raw = base64.b64decode(
+            value,
+            validate=False
+        ).decode(
+            "utf-8",
+            errors="replace"
+        )
+    except Exception:
+        return result
 
+    result["decoded"] = True
+    result["rawPreview"] = raw[:500]
+
+    # proto tcp / proto udp
+    for proto in re.findall(
+        r"^\s*proto\s+(\S+)",
+        raw,
+        re.IGNORECASE | re.MULTILINE
+    ):
+        proto = proto.lower()
+        if proto not in result["protocols"]:
+            result["protocols"].append(proto)
+
+    # remote host [port] [proto]
+    for line in raw.splitlines():
+        line = line.strip()
+
+        if not line.lower().startswith("remote "):
+            continue
+
+        parts = line.split()
+
+        if len(parts) < 2:
+            continue
+
+        host = parts[1]
+        port = None
+        proto = ""
+
+        if len(parts) >= 3 and valid_port(parts[2]):
+            port = to_int(parts[2])
+
+        if len(parts) >= 4:
+            proto = parts[3].lower()
+
+        result["remotes"].append({
+            "host": host,
+            "port": port,
+            "proto": proto
+        })
+
+    return result
+
+
+def parse_api(
+    text: str,
+    source: str = "api"
+) -> List[Dict[str, Any]]:
+
+    print("   🔍 Parsing VPN Gate API CSV...")
+
+    lines = text.splitlines()
+
+    header_index = find_api_header(lines)
+
+    if header_index < 0:
+        print("   ❌ Actual CSV header not found")
+        return []
+
+    csv_text = "\n".join(
+        lines[header_index:]
+    )
+
+    # Remove leading '#' from actual header.
+    csv_text = csv_text.lstrip()
+    if csv_text.startswith("#"):
+        csv_text = csv_text[1:]
+
+    try:
         reader = csv.DictReader(
-            io.StringIO(
-                "\n".join(data_lines)
+            io.StringIO(csv_text)
+        )
+    except Exception as exc:
+        print(f"   ❌ CSV initialization error: {exc}")
+        return []
+
+    print(
+        "   📋 API columns: "
+        + ", ".join(reader.fieldnames or [])
+    )
+
+    servers = []
+
+    for row in reader:
+        if not row:
+            continue
+
+        # --------------------------------------------------------
+        # Repair mis-split rows. Free-text Operator/Message fields
+        # may contain UNQUOTED commas; the Base64 payload never
+        # does, so it stays right-anchored. Rebuild positional
+        # values and realign them to the canonical 15 columns.
+        # --------------------------------------------------------
+
+        ordered_values: List[str] = []
+
+        for key_part, value_part in row.items():
+
+            if key_part is None:
+                ordered_values.extend(
+                    value_part if isinstance(value_part, list) else [value_part]
+                )
+            else:
+                ordered_values.append(value_part)
+
+        if len(ordered_values) > 15:
+            repaired_values = (
+                ordered_values[:12]
+                + [
+                    ordered_values[12],
+                    ",".join(ordered_values[13:-1]),
+                    ordered_values[-1],
+                ]
             )
+        elif len(ordered_values) < 15:
+            repaired_values = ordered_values + [""] * (
+                15 - len(ordered_values)
+            )
+        else:
+            repaired_values = ordered_values
+
+        row = dict(
+            zip(reader.fieldnames or [], repaired_values)
         )
 
-        for row in reader:
-
-            if not row:
-                continue
-
-            s = new_server()
-
-            s["hostname"] = clean(
-                row.get("HostName")
-            )
-
-            s["ip"] = clean(
-                row.get("IP")
-            )
-
-            s["countryLong"] = clean(
-                row.get("CountryLong")
-            )
-
-            s["country"] = clean(
-                row.get("CountryShort")
-            )
-
-            s["score"] = safe_int(
-                row.get("Score")
-            )
-
-            s["ping"] = safe_int(
-                row.get("Ping")
-            )
-
-            s["speed"] = safe_int(
-                row.get("Speed")
-            )
-
-            s["sessions"] = safe_int(
-                row.get("NumVpnSessions")
-            )
-
-            s["uptime"] = safe_int(
-                row.get("Uptime")
-            )
-
-            s["totalUsers"] = safe_int(
-                row.get("TotalUsers")
-            )
-
-            s["sources"].append("api")
-
-            # API normally provides OpenVPN configuration.
-            if row.get("OpenVPN_ConfigData_Base64"):
-                s["openVPN"]["tcp"] = 443
-
-            servers.append(s)
-
-    except Exception as e:
-
-        print(
-            f"❌ API CSV parsing error: {e}"
+        hostname = clean(
+            row.get("HostName", "")
         )
+        ip = normalize_ip(
+            row.get("IP", "")
+        )
+
+        if not hostname or not valid_ip(ip):
+            continue
+
+        server = new_server()
+
+        set_field(
+            server,
+            "identity.hostname",
+            hostname.lower(),
+            source
+        )
+
+        set_field(
+            server,
+            "identity.ip",
+            ip,
+            source
+        )
+
+        set_field(
+            server,
+            "identity.country",
+            clean(row.get("CountryShort")),
+            source
+        )
+
+        set_field(
+            server,
+            "identity.countryLong",
+            clean(row.get("CountryLong")),
+            source
+        )
+
+        set_field(
+            server,
+            "performance.score",
+            to_int(row.get("Score")),
+            source
+        )
+
+        set_field(
+            server,
+            "performance.pingMs",
+            to_float(row.get("Ping")),
+            source
+        )
+
+        # API Speed is bits/sec -> Mbps.
+        speed_bps = to_float(
+            row.get("Speed")
+        )
+
+        if speed_bps > 0:
+            set_field(
+                server,
+                "performance.speedMbps",
+                speed_bps / 1_000_000.0,
+                source
+            )
+
+        set_field(
+            server,
+            "performance.sessions",
+            to_int(row.get("NumVpnSessions")),
+            source
+        )
+
+        # API Uptime is milliseconds in the current feed.
+        uptime_ms = to_float(
+            row.get("Uptime")
+        )
+
+        if uptime_ms > 0:
+            uptime_days = uptime_ms / 86_400_000.0
+            set_field(
+                server,
+                "performance.uptimeDays",
+                uptime_days,
+                source
+            )
+
+        set_field(
+            server,
+            "performance.totalUsers",
+            to_int(row.get("TotalUsers")),
+            source
+        )
+
+        total_traffic = to_float(
+            row.get("TotalTraffic")
+        )
+
+        if total_traffic > 0:
+            # Current API unit is bytes.
+            set_field(
+                server,
+                "performance.totalTrafficGB",
+                total_traffic / 1024**3,
+                source
+            )
+
+        set_field(
+            server,
+            "logging.policy",
+            clean(row.get("LogType")),
+            source
+        )
+
+        set_field(
+            server,
+            "operator.name",
+            clean(row.get("Operator")),
+            source
+        )
+
+        set_field(
+            server,
+            "operator.message",
+            clean(row.get("Message")),
+            source
+        )
+
+        config_b64 = clean(
+            row.get("OpenVPN_ConfigData_Base64")
+        )
+
+        if config_b64:
+            mark_supported(
+                server,
+                "openvpn",
+                source
+            )
+
+            set_field(
+                server,
+                "protocols.openvpn.configAvailable",
+                True,
+                source
+            )
+
+            config_info = decode_openvpn_config(
+                config_b64
+            )
+
+            # Global "proto" directive can carry the transport family
+            # for remote lines that omit it (mission §7: ports are
+            # attributed only from actual config directives).
+            global_families = sorted({
+                p.split("-")[0]
+                for p in config_info.get("protocols", [])
+                if p.lower().startswith(("tcp", "udp"))
+            })
+
+            inherited_proto = (
+                global_families[0]
+                if len(global_families) == 1
+                else ""
+            )
+
+            for remote in config_info["remotes"]:
+                server[
+                    "protocols"
+                ][
+                    "openvpn"
+                ][
+                    "configs"
+                ].append(remote)
+
+                proto = remote.get("proto", "").lower()
+
+                if not proto:
+                    proto = inherited_proto
+
+                port = remote.get("port")
+
+                if proto in ("tcp", "tcp-client"):
+                    set_field(
+                        server,
+                        "protocols.openvpn.tcp.supported",
+                        True,
+                        source
+                    )
+
+                    if valid_port(port):
+                        set_field(
+                            server,
+                            "protocols.openvpn.tcp.port",
+                            port,
+                            source
+                        )
+
+                elif proto in ("udp", "udp4", "udp6"):
+                    set_field(
+                        server,
+                        "protocols.openvpn.udp.supported",
+                        True,
+                        source
+                    )
+
+                    if valid_port(port):
+                        set_field(
+                            server,
+                            "protocols.openvpn.udp.port",
+                            port,
+                            source
+                        )
+
+            # Some configs use "proto" globally.
+            for proto in config_info["protocols"]:
+                if proto in ("tcp", "tcp-client"):
+                    set_field(
+                        server,
+                        "protocols.openvpn.tcp.supported",
+                        True,
+                        source
+                    )
+                elif proto in ("udp", "udp4", "udp6"):
+                    set_field(
+                        server,
+                        "protocols.openvpn.udp.supported",
+                        True,
+                        source
+                    )
+
+        source_add(server, source)
+        servers.append(server)
 
     print(
         f"   📦 API servers: {len(servers)}"
@@ -515,15 +765,894 @@ def parse_vpngate_api(csv_text: str) -> List[Dict]:
 
 
 # ============================================================
-# Mirror discovery
+# ============================================================
+# UPTIME / TABLE HELPERS
+# ============================================================
+
+def parse_uptime_days(text: str) -> float:
+    """
+    Parse VPN Gate uptime snippets such as ``93 days``,
+    ``11 hours`` or ``45 mins`` into fractional days.
+    Unknown formats yield 0.0.
+    """
+    m = re.search(
+        r"(\d+(?:\.\d+)?)\s*(mins?|minutes?|hours?|hrs?|days?)",
+        clean(text),
+        re.IGNORECASE,
+    )
+
+    if not m:
+        return 0.0
+
+    value = float(m.group(1))
+    unit = m.group(2).lower()
+
+    if unit.startswith("min"):
+        return round(value / 1440.0, 4)
+
+    if unit.startswith("h"):
+        return round(value / 24.0, 4)
+
+    return round(value, 4)
+
+
+HOSTS_TABLE_ID = "vg_hosts_table_id"
+
+COLUMN_HEADER_KEYWORDS = {
+    "country": ("country", "physical location"),
+    "host": ("ddns hostname", "ip address", "hostname"),
+    "sessions": ("vpn sessions", "uptime"),
+    "perf": ("line quality", "throughput", "ping"),
+    "softether": ("ssl-vpn",),
+    "l2tp": ("l2tp/ipsec", "l2tp"),
+    "openvpn": ("openvpn",),
+    "sstp": ("ms-sstp", "sstp"),
+    "operator": ("volunteer operator", "operator's name"),
+    "score": ("score", "quality"),
+}
+
+
+def find_hosts_tables(soup) -> List[Any]:
+    """All candidate hosts tables (the live page embeds several
+    elements sharing the id)."""
+    return soup.find_all("table", id=HOSTS_TABLE_ID)
+
+
+def build_column_map(table) -> Dict[str, int]:
+    """
+    Derive column-name -> index mapping from the table header row.
+    Derived from the actual DOM labels, never hardcoded positions.
+    """
+    header_cells: List[Any] = []
+
+    for tr in table.find_all("tr"):
+        cells = tr.find_all(["td", "th"])
+
+        if any(
+            "vg_table_header" in (c.get("class") or [])
+            for c in cells
+        ):
+            header_cells = cells
+            break
+
+    if not header_cells:
+        rows = table.find_all("tr")
+
+        if rows:
+            header_cells = rows[0].find_all(["td", "th"])
+
+    colmap: Dict[str, int] = {}
+
+    for idx, cell in enumerate(header_cells):
+        label = clean(cell.get_text(" ", strip=True)).lower()
+
+        for key, keywords in COLUMN_HEADER_KEYWORDS.items():
+            if key in colmap:
+                continue
+
+            if any(kw in label for kw in keywords):
+                colmap[key] = idx
+                break
+
+    return colmap
+
+
+def select_hosts_table(candidates: List[Any]) -> Optional[Any]:
+    """Pick the genuine hosts list out of duplicate-id candidates:
+    prefer the one whose header exposes every expected column."""
+    required = {"country", "host", "softether", "openvpn"}
+
+    for table in candidates:
+        try:
+            colmap = build_column_map(table)
+        except Exception:
+            continue
+
+        if required <= set(colmap):
+            return table
+
+    return candidates[0] if candidates else None
+
+
+# HTML PROTOCOL PARSER
+# ============================================================
+
+def parse_sstp(value: str) -> Tuple[bool, str, Optional[int]]:
+    m = re.search(
+        r"SSTP\s+Hostname\s*:\s*([A-Za-z0-9._-]+)"
+        r"(?::(\d+))?",
+        value,
+        re.IGNORECASE
+    )
+
+    if not m:
+        return False, "", None
+
+    host = normalize_host(m.group(1))
+    port = to_int(m.group(2)) if m.group(2) else None
+
+    return True, host, port
+
+
+def parse_html_protocols(
+    row_text: str,
+    server: Dict[str, Any],
+    source: str
+) -> None:
+    """
+    Parse protocol sections from the actual row text.
+
+    The current VPN Gate row is ordered approximately as:
+        SSL-VPN
+        TCP: xxxx
+        UDP: Supported
+        L2TP/IPsec
+        OpenVPN
+        TCP: xxxx
+        UDP: xxxx
+        MS-SSTP
+        SSTP Hostname: host[:port]
+    """
+
+    text = clean(row_text)
+
+    # --------------------------------------------------------
+    # SoftEther / SSL-VPN
+    # --------------------------------------------------------
+
+    soft_match = re.search(
+        r"SSL-VPN.*?"
+        r"(?:TCP:\s*(\d+))?"
+        r".{0,120}?"
+        r"(?:UDP:\s*Supported)?",
+        text,
+        re.IGNORECASE
+    )
+
+    if soft_match:
+        tcp = to_int(
+            soft_match.group(1)
+        )
+
+        if valid_port(tcp):
+            set_field(
+                server,
+                "protocols.softether.tcp.supported",
+                True,
+                source
+            )
+            set_field(
+                server,
+                "protocols.softether.tcp.port",
+                tcp,
+                source
+            )
+
+        if re.search(
+            r"SSL-VPN.*?UDP:\s*Supported",
+            text,
+            re.IGNORECASE
+        ):
+            set_field(
+                server,
+                "protocols.softether.udp.supported",
+                True,
+                source
+            )
+
+        mark_supported(
+            server,
+            "softether",
+            source
+        )
+
+    # --------------------------------------------------------
+    # L2TP/IPsec
+    # --------------------------------------------------------
+
+    if re.search(
+        r"L2TP/IPsec",
+        text,
+        re.IGNORECASE
+    ):
+        mark_supported(
+            server,
+            "l2tpIpsec",
+            source
+        )
+
+        set_field(
+            server,
+            "protocols.l2tpIpsec.port",
+            1701,
+            source
+        )
+
+    # --------------------------------------------------------
+    # OpenVPN section
+    # --------------------------------------------------------
+
+    ovpn_match = re.search(
+        r"OpenVPN.*?"
+        r"(.*?)(?=MS-SSTP|SSTP Hostname|$)",
+        text,
+        re.IGNORECASE
+    )
+
+    ovpn_section = (
+        ovpn_match.group(1)
+        if ovpn_match
+        else ""
+    )
+
+    tcp_values = [
+        to_int(v)
+        for v in re.findall(
+            r"TCP:\s*(\d+)",
+            ovpn_section,
+            re.IGNORECASE
+        )
+    ]
+
+    udp_values = [
+        to_int(v)
+        for v in re.findall(
+            r"UDP:\s*(\d+)",
+            ovpn_section,
+            re.IGNORECASE
+        )
+    ]
+
+    if tcp_values:
+        port = next(
+            (p for p in tcp_values if valid_port(p)),
+            None
+        )
+
+        if port:
+            mark_supported(
+                server,
+                "openvpn",
+                source
+            )
+            set_field(
+                server,
+                "protocols.openvpn.tcp.supported",
+                True,
+                source
+            )
+            set_field(
+                server,
+                "protocols.openvpn.tcp.port",
+                port,
+                source
+            )
+
+    if udp_values:
+        port = next(
+            (p for p in udp_values if valid_port(p)),
+            None
+        )
+
+        if port:
+            mark_supported(
+                server,
+                "openvpn",
+                source
+            )
+            set_field(
+                server,
+                "protocols.openvpn.udp.supported",
+                True,
+                source
+            )
+            set_field(
+                server,
+                "protocols.openvpn.udp.port",
+                port,
+                source
+            )
+
+    # Presence of the OpenVPN config link is also useful.
+    if re.search(
+        r"OpenVPN\s*Config\s*file",
+        text,
+        re.IGNORECASE
+    ):
+        mark_supported(
+            server,
+            "openvpn",
+            source
+        )
+        set_field(
+            server,
+            "protocols.openvpn.configAvailable",
+            True,
+            source
+        )
+
+    # --------------------------------------------------------
+    # SSTP
+    # --------------------------------------------------------
+
+    supported, host, port = parse_sstp(
+        text
+    )
+
+    if supported:
+        mark_supported(
+            server,
+            "sstp",
+            source
+        )
+
+        set_field(
+            server,
+            "protocols.sstp.hostname",
+            host,
+            source
+        )
+
+        if valid_port(port):
+            set_field(
+                server,
+                "protocols.sstp.port",
+                port,
+                source
+            )
+
+
+# ============================================================
+# HTML SERVER ROW
+# ============================================================
+
+def extract_country_from_row(
+    row_text: str,
+    hostname: str,
+    isp_hostname: str
+) -> str:
+    """
+    Country is the text appearing before the DDNS hostname.
+    This avoids depending on flag-image alt text.
+    """
+    text = clean(row_text)
+
+    if hostname:
+        idx = text.lower().find(
+            hostname.lower()
+        )
+
+        if idx > 0:
+            prefix = text[:idx].strip()
+
+            # Usually country is the last meaningful word(s)
+            # before hostname and can be one or more words.
+            # Remove common image/link artifacts.
+            prefix = re.sub(
+                r"\b(?:country|physical location)\b",
+                "",
+                prefix,
+                flags=re.IGNORECASE
+            ).strip()
+
+            if prefix:
+                # Keep a compact country candidate.
+                # Country names may contain spaces.
+                parts = prefix.split()
+                if len(parts) <= 5:
+                    return " ".join(parts[-5:])
+
+    return ""
+
+
+def parse_html(
+    html: str,
+    source: str
+) -> List[Dict[str, Any]]:
+
+    print(
+        f"   \U0001f50d Parsing HTML: {len(html):,} chars"
+    )
+
+    soup = BeautifulSoup(html, "html.parser")
+
+    candidates = find_hosts_tables(soup)
+    table = select_hosts_table(candidates)
+
+    rows: List[Any] = []
+
+    if table is not None:
+        colmap = build_column_map(table)
+        rows = table.find_all("tr")
+        print(f"   \U0001f5a9 Hosts table columns: {colmap}")
+    else:
+        # Fallback: canonical VPN Gate layout.
+        colmap = {
+            "country": 0,
+            "host": 1,
+            "sessions": 2,
+            "perf": 3,
+            "softether": 4,
+            "l2tp": 5,
+            "openvpn": 6,
+            "sstp": 7,
+            "operator": 8,
+            "score": 9,
+        }
+        rows = soup.find_all("tr")
+
+    print(
+        f"   \U0001f527 HTML rows: {len(rows)}"
+    )
+
+    def cell(tds, key):
+        idx = colmap.get(key)
+
+        if idx is None or idx >= len(tds):
+            return None
+
+        return tds[idx]
+
+    servers: List[Dict[str, Any]] = []
+    seen = set()
+
+    for tr in rows:
+        tds = tr.find_all("td")
+
+        if not tds:
+            continue
+
+        first_classes = tds[0].get("class") or []
+
+        if "vg_table_header" in first_classes:
+            continue
+
+        host_cell = cell(tds, "host")
+
+        host_text = clean(
+            host_cell.get_text(" ", strip=True)
+            if host_cell is not None
+            else tr.get_text(" ", strip=True)
+        )
+
+        host_match = re.search(
+            r"\b([A-Za-z0-9._-]+\.opengw\.net)\b",
+            host_text,
+            re.IGNORECASE,
+        )
+
+        if not host_match:
+            continue
+
+        hostname = normalize_host(host_match.group(1))
+
+        ip = normalize_ip(host_text)
+
+        if not ip:
+            ip = normalize_ip(tr.get_text(" ", strip=True))
+
+        if not ip:
+            continue
+
+        if ip in seen:
+            continue
+
+        seen.add(ip)
+
+        server = new_server()
+
+        set_field(server, "identity.hostname", hostname, source)
+        set_field(server, "identity.ip", ip, source)
+
+        # ISP hostname lives in parentheses after the IP.
+        isp_match = re.search(
+            r"\(([^()]+)\)", host_text
+        )
+
+        if isp_match:
+            isp = normalize_host(isp_match.group(1))
+
+            if isp and not valid_ip(isp):
+                set_field(
+                    server, "identity.ispHostname", isp, source
+                )
+
+        # Country: ISO code from the flag image (authoritative),
+        # long name from the cell text next to it.
+        country_cell = cell(tds, "country")
+
+        if country_cell is not None:
+            img = country_cell.find("img", src=re.compile(r"flags/", re.I))
+
+            if img is not None:
+                iso_m = re.search(
+                    r"flags/([A-Za-z]{2})\.(?:png|gif|jpg|jpeg)",
+                    img.get("src") or "",
+                    re.IGNORECASE,
+                )
+
+                if iso_m:
+                    set_field(
+                        server,
+                        "identity.country",
+                        iso_m.group(1).upper(),
+                        source,
+                    )
+
+            country_long = clean(
+                country_cell.get_text(" ", strip=True)
+            )
+
+            country_long = re.sub(
+                r"\bphysical location\b", "",
+                country_long,
+                flags=re.IGNORECASE,
+            )
+
+            set_field(
+                server,
+                "identity.countryLong",
+                clean(country_long),
+                source,
+            )
+
+        # Sessions / uptime / cumulative users.
+        sessions_cell = cell(tds, "sessions")
+
+        if sessions_cell is not None:
+            s_txt = clean(sessions_cell.get_text(" ", strip=True))
+
+            s_m = re.search(r"([\d,]+)\s*session", s_txt, re.I)
+
+            if s_m:
+                set_field(
+                    server,
+                    "performance.sessions",
+                    to_int(s_m.group(1)),
+                    source,
+                )
+
+            uptime_days = parse_uptime_days(s_txt)
+
+            if uptime_days > 0:
+                set_field(
+                    server,
+                    "performance.uptimeDays",
+                    uptime_days,
+                    source,
+                )
+
+            users_m = re.search(
+                r"total\s+([\d,]+)\s+user", s_txt, re.I
+            )
+
+            if users_m:
+                set_field(
+                    server,
+                    "performance.totalUsers",
+                    to_int(users_m.group(1)),
+                    source,
+                )
+
+        # Line quality: throughput, ping, transfers, logging policy.
+        perf_cell = cell(tds, "perf")
+
+        if perf_cell is not None:
+            p_txt = clean(perf_cell.get_text(" ", strip=True))
+
+            speed_m = re.search(r"([\d.,]+)\s*Mbps", p_txt, re.I)
+
+            if speed_m:
+                set_field(
+                    server,
+                    "performance.speedMbps",
+                    to_float(speed_m.group(1)),
+                    source,
+                )
+
+            ping_m = re.search(
+                r"Ping:\s*([\d.,]+)\s*ms", p_txt, re.I
+            )
+
+            if ping_m:
+                set_field(
+                    server,
+                    "performance.pingMs",
+                    to_float(ping_m.group(1)),
+                    source,
+                )
+
+            traffic_m = re.search(
+                r"([\d.,]+)\s*(GB|TB)", p_txt, re.I
+            )
+
+            if traffic_m:
+                gb = to_float(traffic_m.group(1))
+
+                if traffic_m.group(2).upper() == "TB":
+                    gb *= 1024.0
+
+                set_field(
+                    server,
+                    "performance.totalTrafficGB",
+                    gb,
+                    source,
+                )
+
+            policy_m = re.search(
+                r"Logging policy:\s*(.+)$", p_txt, re.I
+            )
+
+            if policy_m:
+                set_field(
+                    server,
+                    "logging.policy",
+                    clean(policy_m.group(1)),
+                    source,
+                )
+
+        # ---- SoftEther / SSL-VPN (column-scoped; never borrows
+        #      ports from other protocol cells -- mission Bug 1).
+        se_cell = cell(tds, "softether")
+
+        if se_cell is not None:
+            se_txt = clean(se_cell.get_text(" ", strip=True))
+
+            tcp_m = re.search(r"TCP[:\s]*(\d+)", se_txt, re.I)
+            udp_supported = bool(
+                re.search(r"UDP[:\s]*Supported", se_txt, re.I)
+            )
+
+            udp_port_m = re.search(
+                r"UDP[:\s]*(\d+)", se_txt, re.I
+            )
+
+            se_tcp_ok = bool(tcp_m and valid_port(to_int(tcp_m.group(1))))
+
+            if se_tcp_ok:
+                set_field(
+                    server,
+                    "protocols.softether.tcp.supported",
+                    True,
+                    source,
+                )
+                set_field(
+                    server,
+                    "protocols.softether.tcp.port",
+                    to_int(tcp_m.group(1)),
+                    source,
+                )
+
+            if udp_supported or (udp_port_m and valid_port(to_int(udp_port_m.group(1)))):
+                set_field(
+                    server,
+                    "protocols.softether.udp.supported",
+                    True,
+                    source,
+                )
+                # \u00a76: the UDP port stays null unless printed.
+                if udp_port_m and valid_port(to_int(udp_port_m.group(1))):
+                    set_field(
+                        server,
+                        "protocols.softether.udp.port",
+                        to_int(udp_port_m.group(1)),
+                        source,
+                    )
+
+            if se_tcp_ok or udp_supported or (
+                udp_port_m and valid_port(to_int(udp_port_m.group(1)))
+            ):
+                mark_supported(server, "softether", source)
+
+        # ---- L2TP/IPsec
+        l2tp_cell = cell(tds, "l2tp")
+
+        if l2tp_cell is not None:
+            l2tp_txt = clean(l2tp_cell.get_text(" ", strip=True))
+
+            if re.search(r"L2TP", l2tp_txt, re.I):
+                mark_supported(server, "l2tpIpsec", source)
+                set_field(
+                    server, "protocols.l2tpIpsec.port", 1701, source
+                )
+
+        # ---- OpenVPN: URL params on the do_openvpn link are
+        #      authoritative; cell text is only a fallback.
+        ovpn_cell = cell(tds, "openvpn")
+
+        if ovpn_cell is not None:
+            link = ovpn_cell.find(
+                "a", href=lambda h: h and "do_openvpn" in h.lower()
+            )
+
+            params: Dict[str, str] = {}
+
+            if link is not None:
+                href = link["href"]
+                query = href.split("?")[-1]
+
+                for chunk in query.split("&"):
+                    if "=" in chunk:
+                        k, v = chunk.split("=", 1)
+                        params[k.lower()] = v
+
+            if params:
+                set_field(
+                    server,
+                    "protocols.openvpn.configAvailable",
+                    True,
+                    source,
+                )
+                mark_supported(server, "openvpn", source)
+
+                tcp_q = to_int(params.get("tcp", "0"))
+                udp_q = to_int(params.get("udp", "0"))
+
+                if valid_port(tcp_q):
+                    set_field(
+                        server,
+                        "protocols.openvpn.tcp.supported",
+                        True,
+                        source,
+                    )
+                    set_field(
+                        server,
+                        "protocols.openvpn.tcp.port",
+                        tcp_q,
+                        source,
+                    )
+
+                if valid_port(udp_q):
+                    set_field(
+                        server,
+                        "protocols.openvpn.udp.supported",
+                        True,
+                        source,
+                    )
+                    set_field(
+                        server,
+                        "protocols.openvpn.udp.port",
+                        udp_q,
+                        source,
+                    )
+            else:
+                ovpn_txt = clean(
+                    ovpn_cell.get_text(" ", strip=True)
+                )
+
+                tcp_m = re.search(r"TCP[:\s]*(\d+)", ovpn_txt, re.I)
+                udp_m = re.search(r"UDP[:\s]*(\d+)", ovpn_txt, re.I)
+
+                if tcp_m and valid_port(to_int(tcp_m.group(1))):
+                    mark_supported(server, "openvpn", source)
+                    set_field(
+                        server,
+                        "protocols.openvpn.tcp.supported",
+                        True,
+                        source,
+                    )
+                    set_field(
+                        server,
+                        "protocols.openvpn.tcp.port",
+                        to_int(tcp_m.group(1)),
+                        source,
+                    )
+
+                if udp_m and valid_port(to_int(udp_m.group(1))):
+                    mark_supported(server, "openvpn", source)
+                    set_field(
+                        server,
+                        "protocols.openvpn.udp.supported",
+                        True,
+                        source,
+                    )
+                    set_field(
+                        server,
+                        "protocols.openvpn.udp.port",
+                        to_int(udp_m.group(1)),
+                        source,
+                    )
+
+                if re.search(
+                    r"OpenVPN\s*Config\s*file", ovpn_txt, re.I
+                ):
+                    mark_supported(server, "openvpn", source)
+                    set_field(
+                        server,
+                        "protocols.openvpn.configAvailable",
+                        True,
+                        source,
+                    )
+
+        # ---- MS-SSTP (port stays null unless printed).
+        sstp_cell = cell(tds, "sstp")
+
+        if sstp_cell is not None:
+            supported, sstp_host, sstp_port = parse_sstp(
+                clean(sstp_cell.get_text(" ", strip=True))
+            )
+
+            if supported:
+                mark_supported(server, "sstp", source)
+                set_field(
+                    server,
+                    "protocols.sstp.hostname",
+                    sstp_host,
+                    source,
+                )
+
+                if valid_port(sstp_port):
+                    set_field(
+                        server,
+                        "protocols.sstp.port",
+                        sstp_port,
+                        source,
+                    )
+
+        # ---- Operator + score.
+        op_cell = cell(tds, "operator")
+
+        if op_cell is not None:
+            operator = clean(op_cell.get_text(" ", strip=True))
+            operator = re.sub(
+                r"^by\\s+", "", operator, flags=re.I
+            )
+
+            if operator:
+                set_field(
+                    server, "operator.name", operator, source
+                )
+
+        score_cell = cell(tds, "score")
+
+        if score_cell is not None:
+            score_txt = clean(score_cell.get_text(" ", strip=True))
+
+            if score_txt:
+                set_field(
+                    server,
+                    "performance.score",
+                    to_int(score_txt),
+                    source,
+                )
+
+        source_add(server, source)
+        servers.append(server)
+
+    print(
+        f"   \U0001f4e6 HTML servers: {len(servers)}"
+    )
+
+    return servers
+
+
+# MIRRORS
 # ============================================================
 
 def discover_mirrors() -> List[str]:
 
-    print("\n🔎 Discovering VPN Gate mirrors...")
-
-    html = request_text(
-        MIRROR_LIST_URL
+    html = fetch(
+        MIRRORS_URL
     )
 
     if not html:
@@ -534,535 +1663,927 @@ def discover_mirrors() -> List[str]:
         "html.parser"
     )
 
-    mirrors = set()
+    mirrors = []
 
-    for a in soup.find_all("a"):
+    for a in soup.find_all(
+        "a",
+        href=True
+    ):
 
-        href = a.get("href")
+        href = clean(
+            a.get("href")
+        )
 
-        if not href:
+        if not href.startswith(
+            ("http://", "https://")
+        ):
             continue
 
-        href = href.strip()
+        host = urlparse(
+            href
+        ).netloc.lower()
 
+        if not host:
+            continue
+
+        if "vpngate.net" in host:
+            continue
+
+        # Ignore unrelated university pages such as
+        # www.tsukuba.ac.jp/english/.
+        if "tsukuba.ac.jp" in host:
+            continue
+
+        # VPN Gate mirror candidates are usually IP:PORT
+        # or dedicated mirror hosts.
         if (
-            "vpngate" in href.lower()
-            or "/en/" in href.lower()
+            re.match(
+                r"^\d+\.\d+\.\d+\.\d+(?::\d+)?$",
+                host
+            )
+            or
+            "opengw.net" in host
         ):
-
-            if href.startswith(
-                ("http://", "https://")
-            ):
-
-                parsed = urlparse(href)
-
-                # Don't add official site itself
-                if (
-                    "vpngate.net" not in
-                    parsed.netloc.lower()
-                ):
-
-                    base = href.rstrip("/")
-
-                    if not base.endswith("/en"):
-                        base += "/en"
-
-                    mirrors.add(base + "/")
-
-    mirrors_list = sorted(mirrors)
+            if href not in mirrors:
+                mirrors.append(href)
 
     print(
-        f"   🌐 Found {len(mirrors_list)} mirrors"
+        f"   🌐 Mirrors discovered: {len(mirrors)}"
     )
 
-    for mirror in mirrors_list:
+    for mirror in mirrors:
         print(
             f"      • {mirror}"
         )
 
-    return mirrors_list
+    return mirrors
 
 
 # ============================================================
-# Record Merge
+# MERGE
 # ============================================================
+
+_FALSY_SCALARS = (None, "", False, 0, 0.0)
+
+
+def _truthy(value: Any) -> bool:
+    if isinstance(value, (list, tuple, dict)):
+        return len(value) > 0
+
+    return value not in _FALSY_SCALARS
+
 
 def merge_value(
-    old,
-    new,
-    prefer_new=False
-):
-
-    if prefer_new and new not in (
-        "",
-        None,
-        0,
-        False
-    ):
-        return new
-
-    if old in (
-        "",
-        None,
-        0,
-        False
-    ):
-        return new
+    old: Any,
+    new: Any
+) -> Any:
+    if old in _FALSY_SCALARS and not isinstance(old, (list, dict)):
+        return deepcopy(new)
 
     return old
 
 
-def merge_server(
-    base: Dict,
-    incoming: Dict
-) -> Dict:
+def source_priority(source: str) -> int:
+    """Lower number == higher authority. api > html > mirror_*.
+    (Mission \u00a717/\u00a716 authority ordering.)"""
+    return _SOURCE_PRIORITY.get(source_group(source), 20)
 
-    result = deepcopy(base)
 
-    # Strings
-    for field in [
-        "hostname",
-        "ip",
-        "country",
-        "countryLong"
-    ]:
+def record_conflict(
+    target: Dict[str, Any],
+    field: str,
+    old_value: Any,
+    new_value: Any,
+    old_owner: str,
+    new_owner: str,
+) -> None:
+    """Record a visible disagreement (mission \u00a738): conflicts are
+    never silently overwritten; each attempt is auditable."""
+    conflicts = target.setdefault("conflicts", [])
 
-        result[field] = merge_value(
-            result.get(field),
-            incoming.get(field)
-        )
+    for existing in conflicts:
+        values = existing.get("values", {})
 
-    # Numeric
-    for field in [
-        "sessions",
-        "uptime",
-        "totalUsers",
-        "score",
-        "ping",
-        "speed"
-    ]:
-
-        old = safe_int(
-            result.get(field)
-        )
-
-        new = safe_int(
-            incoming.get(field)
-        )
-
-        # For metrics where larger is generally better
-        if field in (
-            "uptime",
-            "totalUsers",
-            "score",
-            "speed"
+        if (
+            existing.get("field") == field
+            and values.get(old_owner) == old_value
+            and values.get(new_owner) == new_value
         ):
+            return
 
-            result[field] = max(
-                old,
-                new
+    conflicts.append({
+        "field": field,
+        "values": {
+            old_owner: deepcopy(old_value),
+            new_owner: deepcopy(new_value),
+        },
+    })
+
+
+def recursive_merge(
+    target: Dict[str, Any],
+    incoming: Dict[str, Any],
+    path: str = "",
+    record: Optional[Dict[str, Any]] = None,
+    root_target: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+
+    if record is None:
+        record = incoming
+
+    if root_target is None:
+        root_target = target
+
+    for key, new_value in incoming.items():
+
+        cur_path = f"{path}.{key}" if path else key
+
+        if key in ("sourceCount", "_owners", "schemaVersion"):
+            continue
+
+        if key == "sources":
+            for source_name in new_value or []:
+                source_add(target, source_name)
+            continue
+
+        if key == "conflicts":
+            for item in new_value or []:
+                existing_conflict = next(
+                    (
+                        c
+                        for c in root_target.setdefault("conflicts", [])
+                        if c.get("field") == item.get("field")
+                    ),
+                    None,
+                )
+
+                if existing_conflict is None:
+                    root_target["conflicts"].append(deepcopy(item))
+                else:
+                    existing_values = existing_conflict.setdefault(
+                        "values", {}
+                    )
+
+                    for owner, owner_value in item.get(
+                        "values", {}
+                    ).items():
+                        existing_values[owner] = deepcopy(owner_value)
+            continue
+
+        tgt_child = target.get(key)
+
+        if isinstance(new_value, dict):
+            if not isinstance(tgt_child, dict):
+                tgt_child = {}
+                target[key] = tgt_child
+
+            recursive_merge(tgt_child, new_value, cur_path, record, root_target)
+            continue
+
+        if isinstance(new_value, list):
+            if new_value:
+                if not isinstance(tgt_child, list):
+                    tgt_child = []
+                    target[key] = tgt_child
+
+                for item in new_value:
+
+                    if item not in tgt_child:
+                        tgt_child.append(deepcopy(item))
+            continue
+
+        # ---- scalar leaf with provenance-aware conflict handling.
+        old_value = target.get(key)
+
+        if isinstance(old_value, (dict, list)):
+            old_truthy = len(old_value) > 0
+        else:
+            old_truthy = old_value not in _FALSY_SCALARS
+
+        new_scalar_truthy = _truthy(new_value)
+
+        if new_scalar_truthy and old_truthy:
+
+            try:
+                differs = bool(old_value != new_value)
+            except Exception:
+                differs = True
+
+            if differs:
+                fs = root_target.setdefault("fieldSources", {})
+                old_sources = [
+                    s for s in fs.get(cur_path, []) if s
+                ]
+                incoming_sources = [
+                    s
+                    for s in record.get("fieldSources", {}).get(
+                        cur_path, []
+                    )
+                    if s
+                ]
+
+                old_owner = (
+                    old_sources[-1] if old_sources else "previous"
+                )
+                new_owner = (
+                    incoming_sources[-1]
+                    if incoming_sources
+                    else "incoming"
+                )
+
+                if source_priority(new_owner) < source_priority(
+                    old_owner
+                ):
+                    target[key] = deepcopy(new_value)
+
+                record_conflict(
+                    root_target,
+                    cur_path,
+                    old_value,
+                    new_value,
+                    old_owner,
+                    new_owner,
+                )
+
+        elif new_scalar_truthy and not old_truthy:
+            # Missing on the current side: fill the gap. No conflict
+            # is recorded -- nothing was overwritten (\u00a711).
+            target[key] = deepcopy(new_value)
+
+        # Falsy incoming values never erase authoritative data.
+
+    # Merge fieldSources separately. Provenance lives at the top
+    # level of a record only, so this runs once per merge root.
+    if not path:
+        for src_path, srcs in record.get("fieldSources", {}).items():
+
+            existing = target[
+                "fieldSources"
+            ].setdefault(src_path, [])
+
+            for source_name in srcs:
+
+                if source_name not in existing:
+                    existing.append(source_name)
+
+        target["sourceCount"] = len(target.get("sources", []))
+
+    return target
+
+
+def merge_records(
+    records: List[Dict[str, Any]]
+) -> List[Dict[str, Any]]:
+
+    database = {}
+
+    duplicates = 0
+
+    for record in records:
+
+        ip = record[
+            "identity"
+        ].get(
+            "ip",
+            ""
+        )
+
+        host = normalize_host(
+            record[
+                "identity"
+            ].get(
+                "hostname",
+                ""
+            )
+        )
+
+        key = (
+            ip
+            if valid_ip(ip)
+            else host
+        )
+
+        if not key:
+            continue
+
+        if key not in database:
+
+            database[key] = deepcopy(
+                record
             )
 
         else:
 
-            result[field] = (
-                old if old else new
+            duplicates += 1
+
+            recursive_merge(
+                database[key],
+                record
             )
-
-    # SoftEther
-    result["softEther"]["tcp"] = merge_value(
-        result["softEther"].get("tcp"),
-        incoming["softEther"].get("tcp")
-    )
-
-    result["softEther"]["udp"] = (
-        result["softEther"].get("udp", False)
-        or
-        incoming["softEther"].get("udp", False)
-    )
-
-    # OpenVPN
-    result["openVPN"]["tcp"] = merge_value(
-        result["openVPN"].get("tcp"),
-        incoming["openVPN"].get("tcp")
-    )
-
-    result["openVPN"]["udp"] = merge_value(
-        result["openVPN"].get("udp"),
-        incoming["openVPN"].get("udp")
-    )
-
-    # L2TP
-    result["l2tp"] = (
-        result.get("l2tp", False)
-        or
-        incoming.get("l2tp", False)
-    )
-
-    # SSTP
-    result["sstp"]["host"] = merge_value(
-        result["sstp"].get("host"),
-        incoming["sstp"].get("host")
-    )
-
-    result["sstp"]["port"] = merge_value(
-        result["sstp"].get("port"),
-        incoming["sstp"].get("port")
-    )
-
-    # Sources
-    sources = set(
-        result.get("sources", [])
-    )
-
-    sources.update(
-        incoming.get("sources", [])
-    )
-
-    result["sources"] = sorted(
-        sources
-    )
-
-    result["sourceCount"] = len(
-        result["sources"]
-    )
-
-    return result
-
-
-# ============================================================
-# Duplicate Detection
-# ============================================================
-
-def server_key(server: Dict) -> str:
-
-    ip = normalize_ip(
-        server.get("ip", "")
-    )
-
-    hostname = normalize_hostname(
-        server.get("hostname", "")
-    )
-
-    if valid_ip(ip):
-        return "ip:" + ip
-
-    if hostname:
-        return "host:" + hostname
-
-    return ""
-
-
-def merge_all(
-    server_lists: List[List[Dict]]
-) -> List[Dict]:
-
-    database = {}
-
-    total_input = 0
-
-    for servers in server_lists:
-
-        total_input += len(servers)
-
-        for server in servers:
-
-            key = server_key(server)
-
-            if not key:
-                continue
-
-            if key not in database:
-
-                database[key] = deepcopy(
-                    server
-                )
-
-            else:
-
-                database[key] = merge_server(
-                    database[key],
-                    server
-                )
 
     result = list(
         database.values()
     )
 
-    print("\n" + "=" * 60)
-
     print(
-        f"📥 Input records : {total_input}"
+        "\n============================================================"
     )
 
     print(
-        f"🧹 Unique servers: {len(result)}"
+        f"📥 Input records      : {len(records)}"
     )
 
     print(
-        f"♻️ Removed duplicates: "
-        f"{total_input - len(result)}"
+        f"🧹 Unique servers     : {len(result)}"
     )
 
-    print("=" * 60)
+    print(
+        f"♻️ Duplicates merged  : {duplicates}"
+    )
+
+    print(
+        "============================================================"
+    )
 
     return result
 
 
 # ============================================================
-# Validation
+# ============================================================
+# PROVENANCE CONFIDENCE (mission \u00a715 / \u00a716)
 # ============================================================
 
-def validate_server(server: Dict) -> bool:
+_SOURCE_PRIORITY = {"api": 0, "html": 10}
+_MIRROR_GROUP_RE = re.compile(r"^mirror_\d+$", re.IGNORECASE)
+_CONFIDENCE_SINGLE_GROUP = {
+    "api": 0.75,
+    "html": 0.6,
+    "mirror": 0.35,
+}
+_PROTOCOL_NAMES = ("softether", "openvpn", "l2tpIpsec", "sstp")
 
-    ip = server.get("ip", "")
 
-    if not valid_ip(ip):
+def source_group(source: str) -> str:
+    """Collapse mirror_N aliases into a single independent group."""
+    name = (source or "").strip().lower()
+
+    if _MIRROR_GROUP_RE.match(name):
+        return "mirror"
+
+    return name
+
+
+def independent_source_groups(server: Dict[str, Any]) -> List[str]:
+    """Independent provenance groups contributing to this record."""
+    groups = {
+        source_group(s)
+        for s in server.get("sources", [])
+        if s
+    }
+
+    groups.discard("")
+
+    return sorted(groups)
+
+
+def confidence_for_groups(groups: List[str]) -> float:
+    """Confidence policy (mission \u00a715):
+      - no sources             -> 0.0
+      - one independent group  -> per-group base score
+      - two independent groups -> 0.8
+      - three or more          -> 1.0
+    Mirrors all collapse into ONE group and therefore never raise
+    the confidence beyond what html alone already grants."""
+    unique = {str(g).lower() for g in groups if str(g)}
+
+    if not unique:
+        return 0.0
+
+    if len(unique) >= 3:
+        return 1.0
+
+    if len(unique) == 2:
+        return 0.8
+
+    return _CONFIDENCE_SINGLE_GROUP.get(next(iter(unique)), 0.3)
+
+
+def protocol_source_groups(
+    server: Dict[str, Any],
+    protocol: str,
+) -> List[str]:
+    prefix = f"protocols.{protocol}."
+
+    groups = set()
+
+    for field_path, path_sources in server.get(
+        "fieldSources", {}
+    ).items():
+
+        if field_path.startswith(prefix):
+            groups.update(
+                source_group(s) for s in path_sources if s
+            )
+
+    groups.discard("")
+
+    return sorted(groups)
+
+
+def compute_confidence(
+    server: Dict[str, Any],
+) -> Dict[str, float]:
+    """Per-protocol confidence derived from INDEPENDENT provenance."""
+    return {
+        name: confidence_for_groups(
+            protocol_source_groups(server, name)
+        )
+        for name in _PROTOCOL_NAMES
+    }
+
+
+# NORMALIZATION / VALIDATION
+# ============================================================
+
+def normalize_server(
+    server: Dict[str, Any]
+) -> bool:
+
+    identity = server["identity"]
+    perf = server["performance"]
+    p = server["protocols"]
+
+    identity["hostname"] = normalize_host(
+        identity["hostname"]
+    )
+    identity["ip"] = normalize_ip(
+        identity["ip"]
+    )
+
+    if not valid_ip(
+        identity["ip"]
+    ):
         return False
 
-    hostname = server.get(
-        "hostname",
-        ""
+    # Normalize protocol booleans from their children.
+    p["softether"]["supported"] = bool(
+        p["softether"]["tcp"]["supported"]
+        or p["softether"]["udp"]["supported"]
     )
 
-    if not hostname:
-        server["hostname"] = ip
-
-    # Validate SoftEther TCP
-    tcp = safe_int(
-        server["softEther"].get("tcp")
+    p["openvpn"]["supported"] = bool(
+        p["openvpn"]["tcp"]["supported"]
+        or p["openvpn"]["udp"]["supported"]
+        or p["openvpn"]["configAvailable"]
     )
 
-    if not valid_port(tcp):
-        server["softEther"]["tcp"] = 0
+    # Validate ports.
+    for protocol in (
+        "softether",
+        "openvpn"
+    ):
 
-    # OpenVPN
-    tcp = safe_int(
-        server["openVPN"].get("tcp")
+        for transport in (
+            "tcp",
+            "udp"
+        ):
+
+            port = p[
+                protocol
+            ][
+                transport
+            ]["port"]
+
+            if not valid_port(port):
+                p[
+                    protocol
+                ][
+                    transport
+                ]["port"] = None
+
+    if not valid_port(
+        p["l2tpIpsec"]["port"]
+    ):
+        p[
+            "l2tpIpsec"
+        ][
+            "port"
+        ] = None
+
+    if not valid_port(
+        p["sstp"]["port"]
+    ):
+        p[
+            "sstp"
+        ][
+            "port"
+        ] = None
+
+    # SSTP may still be supported when hostname is present.
+    p["sstp"]["supported"] = bool(
+        p["sstp"]["supported"]
+        or p["sstp"]["hostname"]
     )
 
-    if not valid_port(tcp):
-        server["openVPN"]["tcp"] = 0
+    # If L2TP supported and port absent, 1701 is the protocol port.
+    if p["l2tpIpsec"]["supported"]:
+        p["l2tpIpsec"]["port"] = 1701
 
-    udp = safe_int(
-        server["openVPN"].get("udp")
-    )
+    # Convert uptime to reasonable float.
+    if perf["uptimeDays"] < 0:
+        perf["uptimeDays"] = 0.0
 
-    if not valid_port(udp):
-        server["openVPN"]["udp"] = 0
-
-    # SSTP
-    port = safe_int(
-        server["sstp"].get("port")
-    )
-
-    if not valid_port(port):
-        server["sstp"]["port"] = 0
+    if perf["speedMbps"] < 0:
+        perf["speedMbps"] = 0.0
 
     return True
 
 
-def validate_all(
-    servers: List[Dict]
-) -> List[Dict]:
+def validate_servers(
+    servers: List[Dict[str, Any]]
+) -> List[Dict[str, Any]]:
 
-    result = []
+    valid = []
 
     for server in servers:
 
-        if validate_server(server):
-            result.append(server)
+        if normalize_server(
+            server
+        ):
+            valid.append(
+                server
+            )
 
     print(
-        f"✅ Valid servers: {len(result)}"
+        f"✅ Valid servers: {len(valid)}"
     )
 
-    return result
+    print(
+        f"❌ Invalid servers: "
+        f"{len(servers) - len(valid)}"
+    )
+
+    return valid
 
 
 # ============================================================
-# Quality Score
+# QUALITY SCORING
 # ============================================================
 
-def calculate_quality_score(
-    server: Dict
-) -> int:
+def performance_base_score(
+    server: Dict[str, Any]
+) -> float:
 
-    score = 0
+    perf = server["performance"]
 
-    # --------------------------------------------------------
-    # VPN Gate official Score
-    # --------------------------------------------------------
-
-    official_score = safe_int(
-        server.get("score")
+    speed = float(
+        perf.get(
+            "speedMbps",
+            0
+        ) or 0
     )
 
-    if official_score:
-
-        score += min(
-            40,
-            int(
-                official_score /
-                100000
-            )
-        )
-
-    # --------------------------------------------------------
-    # Speed
-    # --------------------------------------------------------
-
-    speed = safe_int(
-        server.get("speed")
+    ping = float(
+        perf.get(
+            "pingMs",
+            0
+        ) or 0
     )
 
-    if speed >= 100_000_000:
+    sessions = int(
+        perf.get(
+            "sessions",
+            0
+        ) or 0
+    )
+
+    uptime = float(
+        perf.get(
+            "uptimeDays",
+            0
+        ) or 0
+    )
+
+    score = 0.0
+
+    # Speed: 0..30
+    if speed >= 1000:
+        score += 30
+    elif speed >= 500:
+        score += 27
+    elif speed >= 250:
+        score += 24
+    elif speed >= 100:
         score += 20
-
-    elif speed >= 50_000_000:
+    elif speed >= 50:
         score += 15
-
-    elif speed >= 10_000_000:
-        score += 10
-
+    elif speed >= 10:
+        score += 9
     elif speed > 0:
-        score += 5
-
-    # --------------------------------------------------------
-    # Ping
-    # --------------------------------------------------------
-
-    ping = safe_int(
-        server.get("ping")
-    )
-
-    if ping > 0:
-
-        if ping <= 30:
-            score += 20
-
-        elif ping <= 60:
-            score += 15
-
-        elif ping <= 100:
-            score += 10
-
-        elif ping <= 200:
-            score += 5
-
-    # --------------------------------------------------------
-    # Uptime
-    # --------------------------------------------------------
-
-    uptime = safe_int(
-        server.get("uptime")
-    )
-
-    if uptime >= 30:
-        score += 10
-
-    elif uptime >= 7:
-        score += 7
-
-    elif uptime >= 1:
         score += 4
 
-    # --------------------------------------------------------
-    # SoftEther availability
-    # --------------------------------------------------------
-
-    if server["softEther"]["tcp"]:
+    # Ping: 0..25
+    if 1 <= ping <= 20:
+        score += 25
+    elif ping <= 40:
+        score += 22
+    elif ping <= 70:
+        score += 19
+    elif ping <= 100:
+        score += 15
+    elif ping <= 150:
         score += 10
-
-    if server["softEther"]["udp"]:
+    elif ping <= 250:
         score += 5
 
-    # --------------------------------------------------------
-    # Multiple sources
-    # --------------------------------------------------------
+    # Sessions: lower congestion can be better.
+    if sessions <= 5:
+        score += 15
+    elif sessions <= 20:
+        score += 13
+    elif sessions <= 50:
+        score += 10
+    elif sessions <= 100:
+        score += 7
+    elif sessions <= 200:
+        score += 4
 
+    # Uptime: 0..15
+    if uptime >= 90:
+        score += 15
+    elif uptime >= 30:
+        score += 12
+    elif uptime >= 7:
+        score += 9
+    elif uptime >= 1:
+        score += 5
+
+    # Multi-source confidence: 0..15
     source_count = len(
-        server.get("sources", [])
+        server.get(
+            "sources",
+            []
+        )
     )
 
-    if source_count >= 3:
-        score += 10
-
-    elif source_count == 2:
-        score += 7
-
+    if source_count >= 6:
+        score += 15
+    elif source_count >= 4:
+        score += 13
+    elif source_count >= 2:
+        score += 9
     elif source_count == 1:
-        score += 3
+        score += 5
 
     return min(
-        100,
+        100.0,
         score
     )
 
 
-def score_all(
-    servers: List[Dict]
-) -> List[Dict]:
+def score_server(
+    server: Dict[str, Any]
+) -> None:
 
-    for server in servers:
+    base = performance_base_score(
+        server
+    )
 
-        server["qualityScore"] = (
-            calculate_quality_score(
-                server
+    p = server["protocols"]
+
+    def protocol_score(
+        supported: bool,
+        port_score: float,
+        config_score: float = 0
+    ) -> int:
+
+        if not supported:
+            return 0
+
+        return int(
+            min(
+                100,
+                base * 0.75
+                + port_score
+                + config_score
             )
         )
 
-    servers.sort(
-        key=lambda x: (
-            x["qualityScore"],
-            x["speed"],
-            x["uptime"]
+    # Overall
+    overall = base
+
+    if p["softether"]["supported"]:
+        overall += 5
+
+    if p["openvpn"]["supported"]:
+        overall += 4
+
+    if p["sstp"]["supported"]:
+        overall += 3
+
+    if p["l2tpIpsec"]["supported"]:
+        overall += 3
+
+    server[
+        "quality"
+    ][
+        "overall"
+    ] = int(
+        min(
+            100,
+            overall
+        )
+    )
+
+    server[
+        "quality"
+    ][
+        "softether"
+    ] = protocol_score(
+        p["softether"]["supported"],
+        15 if p["softether"]["tcp"]["supported"] else 0,
+        5 if p["softether"]["udp"]["supported"] else 0
+    )
+
+    server[
+        "quality"
+    ][
+        "openvpn"
+    ] = protocol_score(
+        p["openvpn"]["supported"],
+        (
+            8
+            if p["openvpn"]["tcp"]["supported"]
+            else 0
+        )
+        + (
+            6
+            if p["openvpn"]["udp"]["supported"]
+            else 0
+        ),
+        5 if p["openvpn"]["configAvailable"] else 0
+    )
+
+    server[
+        "quality"
+    ][
+        "sstp"
+    ] = protocol_score(
+        p["sstp"]["supported"],
+        10 if p["sstp"]["port"] else 0
+    )
+
+    server[
+        "quality"
+    ][
+        "l2tp"
+    ] = protocol_score(
+        p["l2tpIpsec"]["supported"],
+        10 if p["l2tpIpsec"]["port"] == 1701 else 0
+    )
+
+
+def score_all(
+    servers: List[Dict[str, Any]]
+) -> None:
+
+    for server in servers:
+        score_server(
+            server
+        )
+
+
+def has_protocol(
+    server: Dict[str, Any],
+    name: str
+) -> bool:
+
+    return bool(
+        server[
+            "protocols"
+        ][
+            name
+        ][
+            "supported"
+        ]
+    )
+
+
+def sort_servers(
+    servers: List[Dict[str, Any]],
+    protocol: Optional[str] = None
+) -> List[Dict[str, Any]]:
+
+    if protocol:
+        quality_key = server_quality_key(
+            protocol
+        )
+    else:
+        quality_key = lambda s: s[
+            "quality"
+        ][
+            "overall"
+        ]
+
+    return sorted(
+        servers,
+        key=lambda s: (
+            quality_key(s),
+            s["performance"]["speedMbps"],
+            -(
+                s["performance"]["pingMs"]
+                if s["performance"]["pingMs"] > 0
+                else 999999
+            )
         ),
         reverse=True
     )
 
-    return servers
 
-
-# ============================================================
-# SoftEther filter
-# ============================================================
-
-def is_softether_server(
-    server: Dict
-) -> bool:
-
-    return (
-        bool(
-            server["softEther"].get("tcp")
-        )
-        or
-        bool(
-            server["softEther"].get("udp")
-        )
+def server_quality_key(
+    protocol: str
+):
+    return lambda s: s[
+        "quality"
+    ].get(
+        protocol,
+        0
     )
 
 
 # ============================================================
-# Export JSON
+# EXPORT
 # ============================================================
 
-def export_json(
-    servers: List[Dict],
-    filename: str
+def _export_server(server: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Flatten an internal record into the schema consumed by the
+    Android app's ``VPNGateHtmlServer`` model.
+    """
+    identity = server["identity"]
+    perf = server["performance"]
+    protocols = server["protocols"]
+    quality = server.get("quality", {})
+
+    softether = protocols["softether"]
+    openvpn = protocols["openvpn"]
+    sstp = protocols["sstp"]
+
+    def port_or_zero(value: Any) -> int:
+        return to_int(value) if valid_port(value) else 0
+
+    speed_mbps = to_float(perf.get("speedMbps"))
+
+    return {
+        "hostname": clean(identity.get("hostname")),
+        "ip": clean(identity.get("ip")),
+        "country": clean(identity.get("country")),
+        "countryLong": clean(identity.get("countryLong")),
+        "sessions": to_int(perf.get("sessions")),
+        "uptime": int(round(to_float(perf.get("uptimeDays")))),
+        "totalUsers": to_int(perf.get("totalUsers")),
+        "score": to_int(perf.get("score")),
+        "ping": int(round(to_float(perf.get("pingMs")))),
+        "speed": int(speed_mbps * 1_000_000),
+        "softEther": {
+            "tcp": port_or_zero(softether["tcp"]["port"]),
+            "udp": bool(softether["udp"]["supported"]),
+        },
+        "openVPN": {
+            "tcp": port_or_zero(openvpn["tcp"]["port"]),
+            "udp": port_or_zero(openvpn["udp"]["port"]),
+        },
+        "l2tp": bool(protocols["l2tpIpsec"]["supported"]),
+        "sstp": {
+            "host": clean(sstp.get("hostname")),
+            "port": to_int(sstp.get("port")) if valid_port(sstp.get("port")) else 0,
+        },
+        "sources": list(server.get("sources", [])),
+        "sourceCount": int(len(server.get("sources", []))),
+        "valid": bool(server.get("valid", True)),
+        "qualityScore": to_int(quality.get("overall")),
+    }
+
+
+def save_json(
+    filename: str,
+    servers: List[Dict[str, Any]]
 ):
 
+    exported = [_export_server(server) for server in servers]
+
+    generated_at = time.strftime(
+        "%Y-%m-%dT%H:%M:%SZ",
+        time.gmtime()
+    )
+
     output = {
-        "generatedAt": time.strftime(
-            "%Y-%m-%dT%H:%M:%SZ",
-            time.gmtime()
-        ),
-
+        "schemaVersion": "4.0",
+        "generatedAt": generated_at,
+        "generatedAtUtc": generated_at,
         "source": "VPN Gate multi-source collector",
-
-        "count": len(servers),
-
-        "servers": servers
+        "count": len(exported),
+        "servers": exported
     }
 
     with open(
@@ -1079,45 +2600,52 @@ def export_json(
         )
 
     print(
-        f"💾 JSON saved: {filename}"
+        f"\U0001f4be JSON saved: {filename} ({len(exported)} servers)"
     )
 
 
-# ============================================================
-# Export CSV
-# ============================================================
-
-def export_csv(
-    servers: List[Dict],
-    filename: str
+def save_csv(
+    filename: str,
+    servers: List[Dict[str, Any]]
 ):
 
     fields = [
         "hostname",
         "ip",
+        "ispHostname",
         "country",
         "countryLong",
 
-        "sessions",
-        "uptime",
-        "totalUsers",
-
         "score",
-        "ping",
-        "speed",
+        "pingMs",
+        "speedMbps",
+        "sessions",
+        "uptimeDays",
+        "totalUsers",
+        "totalTrafficGB",
 
-        "softEtherTcp",
-        "softEtherUdp",
+        "softetherSupported",
+        "softetherTcpPort",
+        "softetherUdpSupported",
 
-        "openVpnTcp",
-        "openVpnUdp",
+        "openvpnSupported",
+        "openvpnTcpPort",
+        "openvpnUdpPort",
+        "openvpnConfigAvailable",
 
-        "l2tp",
+        "l2tpSupported",
+        "l2tpPort",
 
-        "sstpHost",
+        "sstpSupported",
+        "sstpHostname",
         "sstpPort",
 
-        "qualityScore",
+        "qualityOverall",
+        "qualitySoftether",
+        "qualityOpenvpn",
+        "qualitySstp",
+        "qualityL2tp",
+
         "sourceCount",
         "sources"
     ]
@@ -1125,8 +2653,8 @@ def export_csv(
     with open(
         filename,
         "w",
-        encoding="utf-8-sig",
-        newline=""
+        newline="",
+        encoding="utf-8-sig"
     ) as f:
 
         writer = csv.DictWriter(
@@ -1138,65 +2666,67 @@ def export_csv(
 
         for s in servers:
 
+            i = s["identity"]
+            m = s["performance"]
+            p = s["protocols"]
+            q = s["quality"]
+
             writer.writerow({
+                "hostname": i["hostname"],
+                "ip": i["ip"],
+                "ispHostname": i["ispHostname"],
+                "country": i["country"],
+                "countryLong": i["countryLong"],
 
-                "hostname":
-                    s["hostname"],
+                "score": m["score"],
+                "pingMs": m["pingMs"],
+                "speedMbps": m["speedMbps"],
+                "sessions": m["sessions"],
+                "uptimeDays": m["uptimeDays"],
+                "totalUsers": m["totalUsers"],
+                "totalTrafficGB": m["totalTrafficGB"],
 
-                "ip":
-                    s["ip"],
+                "softetherSupported":
+                    p["softether"]["supported"],
+                "softetherTcpPort":
+                    p["softether"]["tcp"]["port"],
+                "softetherUdpSupported":
+                    p["softether"]["udp"]["supported"],
 
-                "country":
-                    s["country"],
+                "openvpnSupported":
+                    p["openvpn"]["supported"],
+                "openvpnTcpPort":
+                    p["openvpn"]["tcp"]["port"],
+                "openvpnUdpPort":
+                    p["openvpn"]["udp"]["port"],
+                "openvpnConfigAvailable":
+                    p["openvpn"]["configAvailable"],
 
-                "countryLong":
-                    s["countryLong"],
+                "l2tpSupported":
+                    p["l2tpIpsec"]["supported"],
+                "l2tpPort":
+                    p["l2tpIpsec"]["port"],
 
-                "sessions":
-                    s["sessions"],
-
-                "uptime":
-                    s["uptime"],
-
-                "totalUsers":
-                    s["totalUsers"],
-
-                "score":
-                    s["score"],
-
-                "ping":
-                    s["ping"],
-
-                "speed":
-                    s["speed"],
-
-                "softEtherTcp":
-                    s["softEther"]["tcp"],
-
-                "softEtherUdp":
-                    s["softEther"]["udp"],
-
-                "openVpnTcp":
-                    s["openVPN"]["tcp"],
-
-                "openVpnUdp":
-                    s["openVPN"]["udp"],
-
-                "l2tp":
-                    s["l2tp"],
-
-                "sstpHost":
-                    s["sstp"]["host"],
-
+                "sstpSupported":
+                    p["sstp"]["supported"],
+                "sstpHostname":
+                    p["sstp"]["hostname"],
                 "sstpPort":
-                    s["sstp"]["port"],
+                    p["sstp"]["port"],
 
-                "qualityScore":
-                    s["qualityScore"],
+                "qualityOverall":
+                    q["overall"],
+                "qualitySoftether":
+                    q["softether"],
+                "qualityOpenvpn":
+                    q["openvpn"],
+                "qualitySstp":
+                    q["sstp"],
+                "qualityL2tp":
+                    q["l2tp"],
 
                 "sourceCount":
                     s["sourceCount"],
-
                 "sources":
                     "|".join(
                         s["sources"]
@@ -1209,223 +2739,562 @@ def export_csv(
 
 
 # ============================================================
-# Main
+# REPORT
+# ============================================================
+
+def protocol_counts(
+    servers: List[Dict[str, Any]]
+) -> Dict[str, int]:
+
+    return {
+        "softether":
+            sum(
+                has_protocol(s, "softether")
+                for s in servers
+            ),
+
+        "openvpn":
+            sum(
+                has_protocol(s, "openvpn")
+                for s in servers
+            ),
+
+        "sstp":
+            sum(
+                has_protocol(s, "sstp")
+                for s in servers
+            ),
+
+        "l2tpIpsec":
+            sum(
+                has_protocol(s, "l2tpIpsec")
+                for s in servers
+            ),
+
+        "softetherTcp":
+            sum(
+                s["protocols"]
+                ["softether"]
+                ["tcp"]
+                ["supported"]
+                for s in servers
+            ),
+
+        "softetherUdp":
+            sum(
+                s["protocols"]
+                ["softether"]
+                ["udp"]
+                ["supported"]
+                for s in servers
+            ),
+
+        "openvpnTcp":
+            sum(
+                s["protocols"]
+                ["openvpn"]
+                ["tcp"]
+                ["supported"]
+                for s in servers
+            ),
+
+        "openvpnUdp":
+            sum(
+                s["protocols"]
+                ["openvpn"]
+                ["udp"]
+                ["supported"]
+                for s in servers
+            )
+    }
+
+
+def build_report(
+    servers: List[Dict[str, Any]],
+    mirrors: List[str],
+    raw_count: int
+) -> Dict[str, Any]:
+
+    countries: Dict[str, int] = {}
+
+    for s in servers:
+        c = (
+            s["identity"]["countryLong"]
+            or s["identity"]["country"]
+            or "Unknown"
+        )
+
+        countries[c] = countries.get(
+            c,
+            0
+        ) + 1
+
+    report = {
+        "schemaVersion": "4.0",
+        "generatedAtUtc": time.strftime(
+            "%Y-%m-%dT%H:%M:%SZ",
+            time.gmtime()
+        ),
+        "rawRecords": raw_count,
+        "uniqueServers": len(servers),
+        "mirrorsDiscovered": len(mirrors),
+        "protocolCounts": protocol_counts(
+            servers
+        ),
+        "countries": dict(
+            sorted(
+                countries.items(),
+                key=lambda x: x[1],
+                reverse=True
+            )[:30]
+        )
+    }
+
+    return report
+
+
+# ============================================================
+# DISPLAY
+# ============================================================
+
+def print_top(
+    servers: List[Dict[str, Any]],
+    protocol: Optional[str],
+    title: str,
+    count: int = 20
+):
+
+    print()
+    print("=" * 72)
+    print(title)
+    print("=" * 72)
+
+    ranked = sort_servers(
+        servers,
+        protocol
+    )
+
+    for idx, s in enumerate(
+        ranked[:count],
+        1
+    ):
+
+        i = s["identity"]
+        m = s["performance"]
+        p = s["protocols"]
+        q = s["quality"]
+
+        print()
+        print(
+            f"{idx:02d}. "
+            f"{i['hostname']} ({i['ip']})"
+        )
+
+        print(
+            f"    🌍 "
+            f"{i['countryLong'] or i['country'] or 'Unknown'}"
+        )
+
+        print(
+            f"    ⚡ "
+            f"{m['speedMbps']:.2f} Mbps"
+            f" | 📶 {m['pingMs']:.0f} ms"
+            f" | 👥 {m['sessions']}"
+        )
+
+        print(
+            f"    🔐 SoftEther: "
+            f"TCP={p['softether']['tcp']['port']}"
+            f" UDP={p['softether']['udp']['supported']}"
+        )
+
+        print(
+            f"    🔵 OpenVPN: "
+            f"TCP={p['openvpn']['tcp']['port']}"
+            f" UDP={p['openvpn']['udp']['port']}"
+            f" Config={p['openvpn']['configAvailable']}"
+        )
+
+        print(
+            f"    🟠 L2TP/IPsec: "
+            f"{p['l2tpIpsec']['supported']}"
+            f" port={p['l2tpIpsec']['port']}"
+        )
+
+        print(
+            f"    🟣 SSTP: "
+            f"{p['sstp']['supported']}"
+            f" {p['sstp']['hostname']}"
+            f":{p['sstp']['port']}"
+        )
+
+        print(
+            f"    ⭐ Quality: "
+            f"overall={q['overall']}"
+        )
+
+        print(
+            f"    🔗 Sources: "
+            f"{', '.join(s['sources'])}"
+        )
+
+
+# ============================================================
+# MAIN
 # ============================================================
 
 def main():
 
     print()
-    print("=" * 70)
-    print("       VPN GATE INTELLIGENT SERVER COLLECTOR")
-    print("=" * 70)
+    print("=" * 72)
+    print(
+        "       VPN GATE INTELLIGENT MULTI-PROTOCOL COLLECTOR V4"
+    )
+    print("=" * 72)
 
-    all_sources = []
+    all_records: List[Dict[str, Any]] = []
 
     # --------------------------------------------------------
-    # 1. Main HTML
+    # MAIN HTML
     # --------------------------------------------------------
 
-    print("\n[1/4] VPN Gate main HTML")
+    print()
+    print("[1/3] VPN Gate MAIN HTML")
 
-    html = request_text(
+    html = fetch(
         MAIN_URL
     )
 
     if html:
 
-        servers = parse_vpngate_html(
+        html_servers = parse_html(
             html,
             "html"
         )
 
-        all_sources.append(
-            servers
+        all_records.extend(
+            html_servers
         )
 
     # --------------------------------------------------------
-    # 2. API
+    # API
     # --------------------------------------------------------
 
-    print("\n[2/4] VPN Gate API")
+    print()
+    print("[2/3] VPN Gate API")
 
-    api = request_text(
+    api = fetch(
         API_URL
     )
 
     if api:
 
-        servers = parse_vpngate_api(
-            api
+        api_servers = parse_api(
+            api,
+            "api"
         )
 
-        all_sources.append(
-            servers
-        )
-
-    # --------------------------------------------------------
-    # 3. Mirrors
-    # --------------------------------------------------------
-
-    print("\n[3/4] VPN Gate mirrors")
-
-    mirrors = discover_mirrors()
-
-    # Limit mirror count if necessary
-    # You can increase this later.
-    mirrors_to_test = mirrors[:10]
-
-    for index, mirror in enumerate(
-        mirrors_to_test,
-        1
-    ):
-
-        print(
-            f"\n   Mirror {index}/"
-            f"{len(mirrors_to_test)}"
-        )
-
-        html = request_text(
-            mirror
-        )
-
-        if not html:
-            continue
-
-        servers = parse_vpngate_html(
-            html,
-            f"mirror_{index}"
-        )
-
-        all_sources.append(
-            servers
+        all_records.extend(
+            api_servers
         )
 
     # --------------------------------------------------------
-    # 4. Merge
-    # --------------------------------------------------------
-
-    print("\n[4/4] Intelligent merge")
-
-    servers = merge_all(
-        all_sources
-    )
-
-    # --------------------------------------------------------
-    # Validation
-    # --------------------------------------------------------
-
-    servers = validate_all(
-        servers
-    )
-
-    # --------------------------------------------------------
-    # Score
-    # --------------------------------------------------------
-
-    servers = score_all(
-        servers
-    )
-
-    # --------------------------------------------------------
-    # Export all
-    # --------------------------------------------------------
-
-    export_json(
-        servers,
-        OUTPUT_ALL_JSON
-    )
-
-    export_csv(
-        servers,
-        OUTPUT_CSV
-    )
-
-    # --------------------------------------------------------
-    # SoftEther only
-    # --------------------------------------------------------
-
-    softether_servers = [
-        s
-        for s in servers
-        if is_softether_server(s)
-    ]
-
-    export_json(
-        softether_servers,
-        OUTPUT_SOFTETHER_JSON
-    )
-
-    # --------------------------------------------------------
-    # Summary
+    # MIRRORS
     # --------------------------------------------------------
 
     print()
-    print("=" * 70)
+    print("[3/3] VPN Gate MIRRORS")
 
-    print(
-        f"🌍 Total unique servers : "
-        f"{len(servers)}"
-    )
+    mirrors = discover_mirrors()
 
-    print(
-        f"🔐 SoftEther servers    : "
-        f"{len(softether_servers)}"
-    )
+    mirrors = mirrors[
+        :MAX_MIRRORS
+    ]
 
-    print("=" * 70)
-
-    print("\n🏆 TOP 20 SERVERS\n")
-
-    for index, server in enumerate(
-        servers[:20],
+    for index, mirror in enumerate(
+        mirrors,
         1
     ):
 
-        print(
-            f"{index:02d}. "
-            f"{server['hostname']} "
-            f"({server['ip']})"
-        )
-
-        print(
-            f"    🌍 "
-            f"{server['countryLong']} "
-            f"({server['country']})"
-        )
-
-        print(
-            f"    ⚡ Speed: "
-            f"{server['speed']}"
-        )
-
-        print(
-            f"    📶 Ping: "
-            f"{server['ping']} ms"
-        )
-
-        print(
-            f"    🟢 SoftEther TCP: "
-            f"{server['softEther']['tcp']}"
-        )
-
-        print(
-            f"    🟢 SoftEther UDP: "
-            f"{server['softEther']['udp']}"
-        )
-
-        print(
-            f"    ⭐ Quality: "
-            f"{server['qualityScore']}/100"
-        )
-
-        print(
-            f"    🔗 Sources: "
-            f"{', '.join(server['sources'])}"
-        )
-
         print()
+        print(
+            f"   Mirror {index}/{len(mirrors)}"
+        )
 
-    print("✅ Collection completed.")
+        mirror_html = fetch(
+            mirror
+        )
+
+        if not mirror_html:
+            continue
+
+        mirror_servers = parse_html(
+            mirror_html,
+            f"mirror_{index}"
+        )
+
+        all_records.extend(
+            mirror_servers
+        )
+
+    # --------------------------------------------------------
+    # MERGE
+    # --------------------------------------------------------
+
+    servers = merge_records(
+        all_records
+    )
+
+    # --------------------------------------------------------
+    # VALIDATE
+    # --------------------------------------------------------
+
+    servers = validate_servers(
+        servers
+    )
+
+    # --------------------------------------------------------
+    # SCORE
+    # --------------------------------------------------------
+
+    print(
+        "\n⭐ QUALITY SCORING"
+    )
+
+    score_all(
+        servers
+    )
+
+    # --------------------------------------------------------
+    # FILTERS
+    # --------------------------------------------------------
+
+    softether = [
+        s for s in servers
+        if has_protocol(
+            s,
+            "softether"
+        )
+    ]
+
+    openvpn = [
+        s for s in servers
+        if has_protocol(
+            s,
+            "openvpn"
+        )
+    ]
+
+    sstp = [
+        s for s in servers
+        if has_protocol(
+            s,
+            "sstp"
+        )
+    ]
+
+    l2tp = [
+        s for s in servers
+        if has_protocol(
+            s,
+            "l2tpIpsec"
+        )
+    ]
+
+    multiprotocol = [
+        s for s in servers
+        if sum(
+            has_protocol(s, name)
+            for name in (
+                "softether",
+                "openvpn",
+                "sstp",
+                "l2tpIpsec"
+            )
+        ) >= 2
+    ]
+
+    # --------------------------------------------------------
+    # Rankings
+    # --------------------------------------------------------
+
+    ranked = sort_servers(
+        servers
+    )
+
+    ranked_softether = sort_servers(
+        softether,
+        "softether"
+    )
+
+    ranked_openvpn = sort_servers(
+        openvpn,
+        "openvpn"
+    )
+
+    ranked_sstp = sort_servers(
+        sstp,
+        "sstp"
+    )
+
+    ranked_l2tp = sort_servers(
+        l2tp,
+        "l2tp"
+    )
+
+    # --------------------------------------------------------
+    # OUTPUT
+    # --------------------------------------------------------
+
+    save_json(
+        OUT_ALL,
+        servers
+    )
+
+    save_json(
+        OUT_SOFTETHER,
+        softether
+    )
+
+    save_json(
+        OUT_OPENVPN,
+        openvpn
+    )
+
+    save_json(
+        OUT_SSTP,
+        sstp
+    )
+
+    save_json(
+        OUT_L2TP,
+        l2tp
+    )
+
+    save_json(
+        OUT_MULTI,
+        multiprotocol
+    )
+
+    save_json(
+        OUT_RANKED,
+        ranked
+    )
+
+    save_json(
+        OUT_SOFTETHER_RANKED,
+        ranked_softether
+    )
+
+    save_json(
+        OUT_OPENVPN_RANKED,
+        ranked_openvpn
+    )
+
+    save_json(
+        OUT_SSTP_RANKED,
+        ranked_sstp
+    )
+
+    save_json(
+        OUT_L2TP_RANKED,
+        ranked_l2tp
+    )
+
+    save_csv(
+        OUT_CSV,
+        ranked
+    )
+
+    report = build_report(
+        servers,
+        mirrors,
+        len(all_records)
+    )
+
+    save_json(
+        OUT_REPORT,
+        [report]
+    )
+
+    # --------------------------------------------------------
+    # SUMMARY
+    # --------------------------------------------------------
+
+    print()
+    print("=" * 72)
+    print("📊 FINAL SUMMARY")
+    print("=" * 72)
+
+    print(
+        f"🌍 Unique servers       : {len(servers)}"
+    )
+
+    print(
+        f"🔐 SoftEther            : {len(softether)}"
+    )
+
+    print(
+        f"🔵 OpenVPN              : {len(openvpn)}"
+    )
+
+    print(
+        f"🟣 SSTP                 : {len(sstp)}"
+    )
+
+    print(
+        f"🟠 L2TP/IPsec           : {len(l2tp)}"
+    )
+
+    print(
+        f"🔀 Multi-protocol       : {len(multiprotocol)}"
+    )
+
+    print()
+    print(
+        "Protocol details:"
+    )
+
+    for name, value in report[
+        "protocolCounts"
+    ].items():
+
+        print(
+            f"   {name:<20}: {value}"
+        )
+
+    # --------------------------------------------------------
+    # TOP LISTS
+    # --------------------------------------------------------
+
+    print_top(
+        ranked_softether,
+        "softether",
+        "🏆 TOP SOFTETHER SERVERS"
+    )
+
+    print_top(
+        ranked_openvpn,
+        "openvpn",
+        "🏆 TOP OPENVPN SERVERS"
+    )
+
+    print_top(
+        ranked_sstp,
+        "sstp",
+        "🏆 TOP SSTP SERVERS"
+    )
+
+    print_top(
+        ranked_l2tp,
+        "l2tp",
+        "🏆 TOP L2TP/IPsec SERVERS"
+    )
+
+    print()
+    print("=" * 72)
+    print("✅ COLLECTION COMPLETED")
+    print("=" * 72)
 
 
 if __name__ == "__main__":

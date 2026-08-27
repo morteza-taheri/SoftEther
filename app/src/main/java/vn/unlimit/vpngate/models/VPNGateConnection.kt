@@ -33,8 +33,8 @@ class VPNGateConnection : Parcelable {
     var openVpnConfigData: String? = null
     var tcpPort = 0
     var udpPort = 0
-    private var isL2TPSupport = 0
-    private var isSSTPSupport = 0
+    var isL2TPSupport = 0
+    var isSSTPSupport = 0
     var seTcpPort = 0
     var seUdpPort = 0
 
@@ -285,6 +285,29 @@ class VPNGateConnection : Parcelable {
         seTcpPort = vpnGateItem.seTcpPort
         seUdpPort = vpnGateItem.seUdpPort
         return this
+    }
+
+    fun enrichFromHtmlServer(html: VPNGateHtmlServer) {
+        val se = html.softEther
+        if (se != null && se.tcp > 0 && seTcpPort == 0) {
+            seTcpPort = se.tcp
+        }
+        if (se != null && se.udp && seUdpPort == 0 && se.tcp > 0) {
+            seUdpPort = se.tcp
+        }
+        val ov = html.openVPN
+        if (ov != null && ov.tcp > 0 && tcpPort == 0) {
+            tcpPort = ov.tcp
+        }
+        if (ov != null && ov.udp > 0 && udpPort == 0) {
+            udpPort = ov.udp
+        }
+        if (html.l2tp && isL2TPSupport == 0) {
+            isL2TPSupport = 1
+        }
+        if (html.sstp != null && html.sstp.port > 0 && isSSTPSupport == 0) {
+            isSSTPSupport = 1
+        }
     }
 
     val name: String

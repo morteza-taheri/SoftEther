@@ -10,4 +10,10 @@ interface VPNGateApiService {
         @Url url: String,
         @Query("version") version: String?
     ): String
+
+    @GET
+    suspend fun getJsonString(
+        @Url url: String,
+        @Query("version") version: String? = null
+    ): String
 }
