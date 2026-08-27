@@ -39,8 +39,10 @@ import base64
 import csv
 import io
 import json
+import os
 import re
 import socket
+import sys
 import time
 from copy import deepcopy
 from dataclasses import dataclass
@@ -76,6 +78,7 @@ OUT_SSTP_RANKED = "servers_sstp_ranked.json"
 OUT_L2TP_RANKED = "servers_l2tp_ranked.json"
 OUT_CSV = "servers.csv"
 OUT_REPORT = "collection_report.json"
+OUT_DIAGNOSTICS = "diagnostics_report.json"
 
 HEADERS = {
     "User-Agent": (
@@ -812,6 +815,28 @@ COLUMN_HEADER_KEYWORDS = {
 }
 
 
+def _make_soup(html: str):
+    """Build a parse tree from real (malformed) VPN Gate HTML.
+
+    The live page nests the hosts table in ``<td><p><span>`` and each
+    header block carries an UNMATCHED ``</td>`` before its ``</tr>``.
+    Under ``html.parser`` that stray closing tag unwinds the stack
+    all the way to the OUTER ``<td>`` and silently drops every data
+    row, so the pattern is collapsed before parsing. ``lxml``
+    tolerates the malformation and is preferred when installed.
+    """
+    sanitized = re.sub(
+        r"</td>(?:\s*</td>)+(\s*</tr>)",
+        r"</td>\1",
+        html,
+    )
+
+    try:
+        return BeautifulSoup(sanitized, "lxml")
+    except Exception:
+        return BeautifulSoup(sanitized, "html.parser")
+
+
 def find_hosts_tables(soup) -> List[Any]:
     """All candidate hosts tables (the live page embeds several
     elements sharing the id)."""
@@ -907,7 +932,7 @@ def parse_html(
         f"   \U0001f50d Parsing HTML: {len(html):,} chars"
     )
 
-    soup = BeautifulSoup(html, "html.parser")
+    soup = _make_soup(html)
 
     candidates = find_hosts_tables(soup)
     table = select_hosts_table(candidates)
@@ -1377,6 +1402,407 @@ def parse_html(
     )
 
     return servers
+
+
+# ============================================================
+# DIAGNOSTICS (plan T2)
+# ============================================================
+
+def _diag_cell(tds: List[Any], colmap: Dict[str, int], key: str):
+    idx = colmap.get(key)
+
+    if idx is None or idx >= len(tds):
+        return None
+
+    return tds[idx]
+
+
+def _diag_openvpn_expect(cell) -> Dict[str, Any]:
+    """What the parser SHOULD derive from one OpenVPN cell:
+    ``do_openvpn`` query params are authoritative, cell text is the
+    fallback, and param-vs-text drift is reported separately."""
+    facts: Dict[str, Any] = {
+        "cellPresent": cell is not None,
+        "link": False,
+        "params": {},
+        "textTcp": None,
+        "textUdp": None,
+        "expectTcp": None,
+        "expectUdp": None,
+        "paramTextDrift": False,
+    }
+
+    if cell is None:
+        return facts
+
+    link = cell.find(
+        "a", href=lambda h: h and "do_openvpn" in h.lower()
+    )
+
+    if link is not None:
+        facts["link"] = True
+        query = link["href"].split("?")[-1]
+
+        for chunk in query.split("&"):
+            if "=" in chunk:
+                k, v = chunk.split("=", 1)
+                facts["params"][k.lower()] = v
+
+    txt = clean(cell.get_text(" ", strip=True))
+
+    tcp_m = re.search(r"TCP[:\s]*(\d+)", txt, re.I)
+    udp_m = re.search(r"UDP[:\s]*(\d+)", txt, re.I)
+
+    if tcp_m and valid_port(to_int(tcp_m.group(1))):
+        facts["textTcp"] = to_int(tcp_m.group(1))
+
+    if udp_m and valid_port(to_int(udp_m.group(1))):
+        facts["textUdp"] = to_int(udp_m.group(1))
+
+    if facts["params"]:
+        tcp_q = to_int(facts["params"].get("tcp", "0"))
+        udp_q = to_int(facts["params"].get("udp", "0"))
+
+        facts["expectTcp"] = tcp_q if valid_port(tcp_q) else None
+        facts["expectUdp"] = udp_q if valid_port(udp_q) else None
+
+        if (
+            facts["textTcp"] is not None
+            and facts["expectTcp"] != facts["textTcp"]
+        ) or (
+            facts["textUdp"] is not None
+            and facts["expectUdp"] != facts["textUdp"]
+        ):
+            facts["paramTextDrift"] = True
+    else:
+        # No usable params: the parser falls back to the cell text.
+        facts["expectTcp"] = facts["textTcp"]
+        facts["expectUdp"] = facts["textUdp"]
+
+    return facts
+
+
+def _diag_row_facts(tds: List[Any], colmap: Dict[str, int]) -> Dict[str, Any]:
+    """Raw per-cell ground-truth facts for one hosts-table row,
+    extracted independently from the structured parser."""
+    facts: Dict[str, Any] = {"cells": len(tds)}
+
+    host_cell = _diag_cell(tds, colmap, "host")
+    host_text = clean(
+        host_cell.get_text(" ", strip=True)
+        if host_cell is not None
+        else ""
+    )
+
+    host_m = re.search(
+        r"\b([A-Za-z0-9._-]+\.opengw\.net)\b", host_text, re.I
+    )
+
+    facts["hostname"] = normalize_host(host_m.group(1)) if host_m else ""
+    facts["ip"] = normalize_ip(host_text)
+
+    # Country: ISO code from the flag image.
+    country_cell = _diag_cell(tds, colmap, "country")
+    facts["country"] = ""
+
+    if country_cell is not None:
+        img = country_cell.find(
+            "img", src=re.compile(r"flags/", re.I)
+        )
+
+        if img is not None:
+            iso_m = re.search(
+                r"flags/([A-Za-z]{2})\.(?:png|gif|jpg|jpeg)",
+                img.get("src") or "",
+                re.I,
+            )
+
+            if iso_m:
+                facts["country"] = iso_m.group(1).upper()
+
+    # SoftEther / SSL-VPN cell.
+    se_cell = _diag_cell(tds, colmap, "softether")
+    se_txt = clean(
+        se_cell.get_text(" ", strip=True) if se_cell is not None else ""
+    )
+
+    se_tcp_m = re.search(r"TCP[:\s]*(\d+)", se_txt, re.I)
+    se_udp_m = re.search(r"UDP[:\s]*(\d+)", se_txt, re.I)
+
+    facts["seTcp"] = (
+        to_int(se_tcp_m.group(1))
+        if se_tcp_m and valid_port(to_int(se_tcp_m.group(1)))
+        else None
+    )
+    facts["seUdpSupported"] = bool(
+        re.search(r"UDP[:\s]*Supported", se_txt, re.I)
+    )
+    facts["seUdpPort"] = (
+        to_int(se_udp_m.group(1))
+        if se_udp_m and valid_port(to_int(se_udp_m.group(1)))
+        else None
+    )
+
+    # L2TP/IPsec cell.
+    l2tp_cell = _diag_cell(tds, colmap, "l2tp")
+    l2tp_txt = clean(
+        l2tp_cell.get_text(" ", strip=True) if l2tp_cell is not None else ""
+    )
+    facts["l2tp"] = bool(re.search(r"L2TP", l2tp_txt, re.I))
+
+    # OpenVPN cell.
+    facts["openvpn"] = _diag_openvpn_expect(
+        _diag_cell(tds, colmap, "openvpn")
+    )
+
+    # MS-SSTP cell.
+    sstp_cell = _diag_cell(tds, colmap, "sstp")
+    supported, host, port = parse_sstp(
+        clean(
+            sstp_cell.get_text(" ", strip=True)
+            if sstp_cell is not None
+            else ""
+        )
+    )
+
+    facts["sstpSupported"] = supported
+    facts["sstpHost"] = host if supported else ""
+    facts["sstpPort"] = port if supported else None
+
+    return facts
+
+
+def diagnose_html(
+    html: str,
+    source: str = "html",
+    verbose: bool = True,
+) -> Dict[str, Any]:
+    """Compare structured parse results against raw cell facts for
+    EVERY hosts-table row and aggregate mismatch counts (plan T2.1).
+
+    No port is ever invented here: an absent fact stays None, so an
+    invented port on the parsed side is reported (§6/§9/§38).
+    """
+    soup = _make_soup(html)
+    table = select_hosts_table(find_hosts_tables(soup))
+
+    if table is None:
+        return {
+            "rows": 0,
+            "compared": 0,
+            "mismatchTotal": 0,
+            "mismatches": [],
+            "mismatchCounts": {},
+            "rowAnomalies": {},
+        }
+
+    colmap = build_column_map(table)
+    expected_cols = max(colmap.values()) + 1 if colmap else 10
+
+    parsed = {
+        s["identity"]["hostname"]: s
+        for s in parse_html(html, source)
+    }
+
+    mismatches: List[Dict[str, Any]] = []
+    counts: Dict[str, int] = {}
+    anomalies: Dict[str, int] = {}
+    rows = 0
+    compared = 0
+    seen_ips = set()
+
+    def bump(bucket: Dict[str, int], key: str) -> None:
+        bucket[key] = bucket.get(key, 0) + 1
+
+    def bad(host: str, cls: str, fact: Any, got: Any) -> None:
+        bump(counts, cls)
+        mismatches.append({
+            "host": host,
+            "class": cls,
+            "fact": fact,
+            "parsed": got,
+        })
+
+    for tr in table.find_all("tr"):
+        tds = tr.find_all("td")
+
+        if not tds:
+            continue
+
+        if "vg_table_header" in (tds[0].get("class") or []):
+            continue
+
+        rows += 1
+
+        if len(tds) < expected_cols:
+            bump(anomalies, "row_short")
+
+        facts = _diag_row_facts(tds, colmap)
+
+        if not facts["hostname"]:
+            bump(anomalies, "row_no_host")
+            continue
+
+        if facts["ip"]:
+            if facts["ip"] in seen_ips:
+                bump(anomalies, "row_duplicate_ip")
+                continue
+            seen_ips.add(facts["ip"])
+
+        server = parsed.get(facts["hostname"])
+
+        if server is None:
+            bad(
+                facts["hostname"],
+                "missing_parsed_server",
+                facts["hostname"],
+                None,
+            )
+            continue
+
+        compared += 1
+        host = facts["hostname"]
+        p = server["protocols"]
+
+        # ---- SoftEther TCP (strictly from the SSL-VPN cell)
+        se_tcp = p["softether"]["tcp"]
+
+        if facts["seTcp"] is not None:
+            if (
+                not se_tcp["supported"]
+                or se_tcp["port"] != facts["seTcp"]
+            ):
+                bad(host, "softether_tcp", facts["seTcp"], se_tcp["port"])
+        elif se_tcp["supported"]:
+            bad(host, "softether_tcp_invented", None, se_tcp["port"])
+
+        # ---- SoftEther UDP (§6: port None unless printed)
+        se_udp = p["softether"]["udp"]
+        udp_fact = (
+            facts["seUdpSupported"]
+            or facts["seUdpPort"] is not None
+        )
+
+        if udp_fact and not se_udp["supported"]:
+            bad(host, "softether_udp", True, False)
+        elif not udp_fact and se_udp["supported"]:
+            bad(host, "softether_udp_invented", False, True)
+
+        if (
+            facts["seUdpPort"] is not None
+            and se_udp["port"] != facts["seUdpPort"]
+        ):
+            bad(
+                host,
+                "softether_udp_port",
+                facts["seUdpPort"],
+                se_udp["port"],
+            )
+        elif facts["seUdpPort"] is None and se_udp["port"] is not None:
+            bad(host, "softether_udp_port_invented", None, se_udp["port"])
+
+        # ---- OpenVPN (params authoritative, else cell text)
+        ov = facts["openvpn"]
+        ovpn = p["openvpn"]
+
+        if ov["cellPresent"] and not ov["link"]:
+            bump(anomalies, "openvpn_link_missing")
+
+        if ov["paramTextDrift"]:
+            bump(anomalies, "openvpn_param_text_drift")
+
+        if ov["expectTcp"] is not None:
+            if (
+                not ovpn["tcp"]["supported"]
+                or ovpn["tcp"]["port"] != ov["expectTcp"]
+            ):
+                bad(
+                    host,
+                    "openvpn_tcp",
+                    ov["expectTcp"],
+                    ovpn["tcp"]["port"],
+                )
+        elif ovpn["tcp"]["supported"]:
+            bad(host, "openvpn_tcp_no_fact", None, ovpn["tcp"]["port"])
+
+        if ov["expectUdp"] is not None:
+            if (
+                not ovpn["udp"]["supported"]
+                or ovpn["udp"]["port"] != ov["expectUdp"]
+            ):
+                bad(
+                    host,
+                    "openvpn_udp",
+                    ov["expectUdp"],
+                    ovpn["udp"]["port"],
+                )
+        elif ovpn["udp"]["supported"] and ovpn["udp"]["port"] is not None:
+            bad(host, "openvpn_udp_no_fact", None, ovpn["udp"]["port"])
+
+        # ---- L2TP/IPsec
+        if facts["l2tp"] != bool(p["l2tpIpsec"]["supported"]):
+            bad(
+                host,
+                "l2tp",
+                facts["l2tp"],
+                p["l2tpIpsec"]["supported"],
+            )
+
+        # ---- SSTP (§9: port None unless printed)
+        sstp = p["sstp"]
+
+        if facts["sstpSupported"]:
+            if (
+                not sstp["supported"]
+                or sstp["hostname"] != facts["sstpHost"]
+            ):
+                bad(host, "sstp_host", facts["sstpHost"], sstp["hostname"])
+
+            if facts["sstpPort"] is not None:
+                if sstp["port"] != facts["sstpPort"]:
+                    bad(host, "sstp_port", facts["sstpPort"], sstp["port"])
+            elif sstp["port"] is not None:
+                bad(host, "sstp_port_invented", None, sstp["port"])
+        elif sstp["supported"]:
+            bad(host, "sstp_invented", False, True)
+
+        # ---- Country
+        if (
+            facts["country"]
+            and server["identity"]["country"] != facts["country"]
+        ):
+            bad(
+                host,
+                "country",
+                facts["country"],
+                server["identity"]["country"],
+            )
+
+    if verbose:
+        print()
+        print(
+            f"\U0001fa7a Diagnostics: {rows} rows | "
+            f"{compared} compared | "
+            f"{len(mismatches)} mismatches"
+        )
+
+        for item in mismatches:
+            print(
+                f"   \u274c {item['host']}: {item['class']} "
+                f"fact={item['fact']!r} parsed={item['parsed']!r}"
+            )
+
+        if anomalies:
+            print(f"   Anomalies: {anomalies}")
+
+    return {
+        "rows": rows,
+        "compared": compared,
+        "mismatchTotal": len(mismatches),
+        "mismatches": mismatches,
+        "mismatchCounts": dict(sorted(counts.items())),
+        "rowAnomalies": dict(sorted(anomalies.items())),
+    }
 
 
 # MIRRORS
@@ -3158,5 +3584,46 @@ def main():
     print("=" * 72)
 
 
+def run_diagnose(target: Optional[str]) -> int:
+    """CLI: --diagnose [url-or-file]. Compares cell facts vs parsed
+    fields for every row and writes ``diagnostics_report.json``."""
+    html: Optional[str] = None
+
+    if target and os.path.isfile(target):
+        with open(target, encoding="utf-8") as f:
+            html = f.read()
+    else:
+        html = fetch(target or MAIN_URL)
+
+    if not html:
+        print("\u274c Diagnostics: no HTML available")
+        return 2
+
+    result = diagnose_html(html)
+
+    result["target"] = target or MAIN_URL
+    result["generatedAtUtc"] = time.strftime(
+        "%Y-%m-%dT%H:%M:%SZ",
+        time.gmtime(),
+    )
+
+    save_report(OUT_DIAGNOSTICS, result)
+
+    print(
+        f"\U0001f4ca Mismatch counts: {result['mismatchCounts'] or '{}'}"
+    )
+
+    return 1 if result["mismatchTotal"] else 0
+
+
 if __name__ == "__main__":
+    if "--diagnose" in sys.argv:
+        _idx = sys.argv.index("--diagnose")
+        _target = (
+            sys.argv[_idx + 1]
+            if _idx + 1 < len(sys.argv)
+            else None
+        )
+        sys.exit(run_diagnose(_target))
+
     main()

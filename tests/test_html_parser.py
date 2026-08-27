@@ -309,6 +309,53 @@ def test_operator_by_prefix_stripped(servers):
     assert not re.match(r"^by\s", name, re.I)
 
 
+def test_nested_table_with_stray_closing_td_survives():
+    """Live-page layout: the hosts table is nested in <td><p><span>
+    and each header block carries an UNMATCHED </td> before </tr>.
+    Under html.parser that stray tag unwinds the stack to the outer
+    <td> and silently drops every data row — _make_soup must
+    sanitize/parse it so the rows survive."""
+    doc = (
+        "<table id='outer'><tr><td id='cell'><p><span id='Label_Table'>"
+        "<table border='1' id='vg_hosts_table_id'>"
+        "<tr>"
+        "<td class='vg_table_header'>Country</td>"
+        "<td class='vg_table_header'>DDNS hostname</td>"
+        "<td class='vg_table_header'>SSL-VPN</td>"
+        "<td class='vg_table_header'>OpenVPN</td>"
+        "\n</td>\n</tr>"
+        "<tr>"
+        "<td>Japan</td>"
+        "<td>public-vpn-1.opengw.net 192.0.2.1</td>"
+        "<td>SSL-VPN TCP: 443</td>"
+        "<td>OpenVPN Config file</td>"
+        "</tr>"
+        "</table></span></p></td></tr></table>"
+    )
+
+    soup = vg._make_soup(doc)
+    table = vg.select_hosts_table(vg.find_hosts_tables(soup))
+
+    assert table is not None
+
+    data_rows = [
+        tr
+        for tr in table.find_all("tr")
+        if not any(
+            "vg_table_header" in (td.get("class") or [])
+            for td in tr.find_all("td")
+        )
+    ]
+
+    assert len(data_rows) == 1, "data row lost to the stray </td>"
+
+    servers = vg.parse_html(doc, "html")
+
+    assert len(servers) == 1
+    assert servers[0]["identity"]["ip"] == "192.0.2.1"
+    assert servers[0]["protocols"]["softether"]["tcp"]["port"] == 443
+
+
 def test_column_map_derived_not_hardcoded(fixture_html):
     soup = BeautifulSoup(fixture_html, "html.parser")
     table = vg.select_hosts_table(vg.find_hosts_tables(soup))

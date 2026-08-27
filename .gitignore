@@ -31,6 +31,7 @@ servers_sstp_ranked.json
 servers_l2tp_ranked.json
 servers.csv
 collection_report.json
+diagnostics_report.json
 __pycache__/
 .pytest_cache/
 
