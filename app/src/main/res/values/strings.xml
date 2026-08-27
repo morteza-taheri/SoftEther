@@ -351,6 +351,7 @@
     <string name="softether_vpn_udp_natt">SoftEther VPN (UDP - NAT-T)</string>
     <string name="protocol_available_port">Available on port %1$d</string>
     <string name="protocol_available_default_port">Available on TCP %1$d (default)</string>
+    <string name="protocol_supported_port_unknown">Supported — port unknown</string>
     <string name="protocol_not_available">Not available</string>
     <string name="softether_available">SSL-VPN Protocol</string>
     <string name="softether_not_available">Not available</string>

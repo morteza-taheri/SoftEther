@@ -35,6 +35,7 @@ class VpnProtocolSelectionDialog : BottomSheetDialogFragment() {
     private var udpPort: Int = 0
     private var seTcpPort: Int = 0
     private var seUdpPort: Int = 0
+    private var seUdpSupported: Boolean = false
     private var sstpSupport: Boolean = false
     private var isUdpOnly: Boolean = false
 
@@ -110,11 +111,16 @@ class VpnProtocolSelectionDialog : BottomSheetDialogFragment() {
             binding.cardSoftEtherTcp.visibility = View.GONE
         }
 
-        // Configure SoftEther UDP (RUDP) option
-        val hasSoftEtherUdp = isSoftEtherAvailable && seUdpPort > 0
-        if (hasSoftEtherUdp) {
+        // Configure SoftEther UDP (RUDP) option. A server may offer
+        // UDP without publishing the port (§6/§9): show the option
+        // with a "port unknown" note instead of hiding it.
+        if (isSoftEtherAvailable && (seUdpPort > 0 || seUdpSupported)) {
             binding.cardSoftEtherUdp.visibility = View.VISIBLE
-            binding.txtSoftEtherUdpStatus.text = getString(R.string.protocol_available_port, seUdpPort)
+            binding.txtSoftEtherUdpStatus.text = if (seUdpPort > 0) {
+                getString(R.string.protocol_available_port, seUdpPort)
+            } else {
+                getString(R.string.protocol_supported_port_unknown)
+            }
             binding.txtSoftEtherUdpTitle.text = getString(R.string.softether_vpn_udp)
         } else {
             binding.cardSoftEtherUdp.visibility = View.GONE
@@ -198,7 +204,12 @@ class VpnProtocolSelectionDialog : BottomSheetDialogFragment() {
                 listener?.onProtocolSelected(VpnProtocol.SOFTEther_UDP)
                 dismiss()
             } else {
-                Toast.makeText(context, R.string.softether_not_available, Toast.LENGTH_SHORT).show()
+                val msg = if (seUdpSupported) {
+                    R.string.protocol_supported_port_unknown
+                } else {
+                    R.string.softether_not_available
+                }
+                Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
             }
         }
 
@@ -239,6 +250,7 @@ class VpnProtocolSelectionDialog : BottomSheetDialogFragment() {
                 udpPort = connection?.udpPort ?: 0
                 seTcpPort = connection?.seTcpPort ?: 0
                 seUdpPort = connection?.seUdpPort ?: 0
+                seUdpSupported = connection?.seUdpSupported == true
                 sstpSupport = connection?.isSSTPSupport() == true
                 isUdpOnly = connection?.isUdpOnly == true
                 setSoftEtherAvailable(isSoftEtherAvailable)

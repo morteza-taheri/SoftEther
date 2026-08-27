@@ -37,9 +37,16 @@ class VPNGateConnection : Parcelable {
     var isSSTPSupport = 0
     var seTcpPort = 0
     var seUdpPort = 0
+    // SoftEther UDP offered without a published port (§6/§9): the UI
+    // shows "supported — port unknown" instead of hiding the option.
+    var seUdpSupported = false
 
     val isUdpOnly: Boolean
         get() = seTcpPort <= 0 && seUdpPort > 0
+
+    /** SoftEther UDP is offered but no port was published (§6/§9). */
+    val isSeUdpPortUnknown: Boolean
+        get() = seUdpSupported && seUdpPort <= 0
 
     /**
      * Port to use for an MS-SSTP connection. The collected SSTP fact
@@ -71,6 +78,7 @@ class VPNGateConnection : Parcelable {
         isSSTPSupport = `in`.readInt()
         seTcpPort = `in`.readInt()
         seUdpPort = `in`.readInt()
+        seUdpSupported = `in`.readInt() == 1
     }
 
     //Empty constructor
@@ -98,6 +106,7 @@ class VPNGateConnection : Parcelable {
         out.writeInt(isSSTPSupport)
         out.writeInt(seTcpPort)
         out.writeInt(seUdpPort)
+        out.writeInt(if (seUdpSupported) 1 else 0)
     }
 
     private fun decodeBase64(base64str: String): String? {
@@ -266,7 +275,8 @@ class VPNGateConnection : Parcelable {
             isL2TPSupport = this.isL2TPSupport(),
             isSSTPSupport = this.isSSTPSupport(),
             seTcpPort = this.seTcpPort,
-            seUdpPort = this.seUdpPort
+            seUdpPort = this.seUdpPort,
+            seUdpSupported = this.seUdpSupported
         )
     }
 
@@ -292,6 +302,7 @@ class VPNGateConnection : Parcelable {
         isSSTPSupport = if (vpnGateItem.isSSTPSupport) 1 else 0
         seTcpPort = vpnGateItem.seTcpPort
         seUdpPort = vpnGateItem.seUdpPort
+        seUdpSupported = vpnGateItem.seUdpSupported
         return this
     }
 

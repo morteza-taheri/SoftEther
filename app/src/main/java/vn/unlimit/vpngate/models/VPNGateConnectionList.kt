@@ -173,7 +173,7 @@ class VPNGateConnectionList : Parcelable {
         if (filter?.isShowSoftEther == true) {
             whereQuery = appendQuery(
                 whereQuery,
-                "(seTcpPort > 0 OR seUdpPort > 0)"
+                "(seTcpPort > 0 OR seUdpPort > 0 OR seUdpSupported = 1)"
             )
         }
         return whereQuery

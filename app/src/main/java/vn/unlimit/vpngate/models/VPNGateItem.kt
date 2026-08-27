@@ -26,8 +26,13 @@ data class VPNGateItem(
     @ColumnInfo val isL2TPSupport: Boolean = false,
     @ColumnInfo val isSSTPSupport: Boolean = false,
     @ColumnInfo val seTcpPort: Int = 0,
-    @ColumnInfo val seUdpPort: Int = 0
+    @ColumnInfo val seUdpPort: Int = 0,
+    @ColumnInfo val seUdpSupported: Boolean = false
 ) {
     val isUdpOnly: Boolean
         get() = seTcpPort <= 0 && seUdpPort > 0
+
+    /** SoftEther UDP is offered but no port was published (§6/§9). */
+    val isSeUdpPortUnknown: Boolean
+        get() = seUdpSupported && seUdpPort <= 0
 }

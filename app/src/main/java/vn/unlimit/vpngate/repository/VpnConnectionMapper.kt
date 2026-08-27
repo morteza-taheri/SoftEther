@@ -55,7 +55,6 @@ object VpnConnectionMapper {
         if (seUdpSupported && seUdpPort <= 0 && seTcpPort > 0) {
             seUdpPort = seTcpPort
         }
-
         val uptimeDays = VpnRecords.num(perf["uptimeDays"])
         val uptimeMs = min(uptimeDays * 86_400_000.0, Int.MAX_VALUE.toDouble()).toLong()
 
@@ -90,6 +89,8 @@ object VpnConnectionMapper {
         conn.isSSTPSupport = if (VpnRecords.bool(sstp["supported"])) 1 else 0
         conn.seTcpPort = seTcpPort
         conn.seUdpPort = seUdpPort
+        // UI state (§plan T3.8): UDP offered with no published port.
+        conn.seUdpSupported = seUdpSupported
 
         return conn
     }

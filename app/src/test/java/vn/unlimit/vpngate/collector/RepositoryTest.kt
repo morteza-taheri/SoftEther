@@ -8,8 +8,10 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
+import vn.unlimit.vpngate.data.model.VpnRecords
 import vn.unlimit.vpngate.data.remote.HttpFetcher
 import vn.unlimit.vpngate.data.remote.VpnGateUrls
+import vn.unlimit.vpngate.merger.VpnServerMerger
 import vn.unlimit.vpngate.parser.VpnGateApiParser
 import vn.unlimit.vpngate.repository.VpnConnectionMapper
 import vn.unlimit.vpngate.repository.VpnServerRepository
@@ -184,5 +186,45 @@ class RepositoryTest {
         // Locked decision: protocol-standard default when unknown.
         assertEquals(vn.unlimit.vpngate.models.VPNGateConnection.SSTP_DEFAULT_PORT, conn.sstpConnectPort)
         assertEquals(443, conn.sstpConnectPort)
+    }
+
+    @Test
+    fun mapperMarksSoftEtherUdpUnknownPort() {
+        // §6/§9 + plan T3.8: an HTML "UDP: Supported" server with no
+        // printed port stays connectable=unknown; nothing is invented.
+        val record = VpnRecords.newServer()
+        VpnRecords.setField(record, "identity.hostname", "udp-only.opengw.net", "html")
+        VpnRecords.setField(record, "identity.ip", "10.20.30.40", "html")
+        VpnRecords.setField(record, "protocols.softether.udp.supported", true, "html")
+        VpnRecords.sourceAdd(record, "html")
+
+        assertTrue(VpnServerMerger.normalizeServer(record))
+
+        val conn = VpnConnectionMapper.toConnection(record)
+        assertNotNull(conn)
+        conn!!
+        assertEquals(0, conn.seTcpPort)
+        assertEquals(0, conn.seUdpPort)          // no invented port
+        assertEquals(true, conn.seUdpSupported)  // UI "port unknown" state
+        assertTrue(conn.isSeUdpPortUnknown)
+    }
+
+    @Test
+    fun mapperFallsBackToSamePortForSoftEtherUdp() {
+        // Same-listener convention: UDP supported, no UDP port, but a
+        // known TCP port -> UDP inherits the TCP port.
+        val record = VpnRecords.newServer()
+        VpnRecords.setField(record, "identity.hostname", "se-both.opengw.net", "html")
+        VpnRecords.setField(record, "identity.ip", "10.20.30.41", "html")
+        VpnRecords.setField(record, "protocols.softether.tcp.supported", true, "html")
+        VpnRecords.setField(record, "protocols.softether.tcp.port", 992, "html")
+        VpnRecords.setField(record, "protocols.softether.udp.supported", true, "html")
+        VpnRecords.sourceAdd(record, "html")
+
+        val conn = VpnConnectionMapper.toConnection(record)!!
+        assertEquals(992, conn.seTcpPort)
+        assertEquals(992, conn.seUdpPort)
+        assertEquals(true, conn.seUdpSupported)
+        assertTrue(!conn.isSeUdpPortUnknown)
     }
 }
