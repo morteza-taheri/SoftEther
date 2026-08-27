@@ -10,8 +10,8 @@
 > - **T1 DONE** — report path, `^by\s+` fix, dead-code removal, .gitignore complete, provenance in report (`678452d`+).
 > - **T2 DONE** — diagnostics mode, nested-table/stray-`</td>` DOM fix, real fixtures, live run §35 green, spot checks passed (`5b49859`).
 > - **T3 DONE** — Kotlin collector port: models/parsers/merger/ranking with oracle-parity unit tests on the SAME fixtures (`edeaafc`); repository + ViewModel wiring, GitHub-JSON enrichment removed, SoftEther filter, SSTP 443-default (`ca5d0fe`); SoftEther UDP "port unknown" UI state with Room migration 3→4 (`2d000e5`). Kotlin: 32 unit tests green (1 skip identical to Python); `assembleProRelease` green.
-> - **T4 OPEN** — developer diagnostics (in-app debug panel; Python `--debug-ip`).
-> - **T5 BLOCKED** — connectivity tester (needs T2+T3 validation on device).
+> - **T4 DONE** — developer diagnostics: Python `--debug-ip` per-server provenance dump + in-app debug panel (provenance, conflicts, confidence, raw HTML/API toggle) with identical layouts; tests on both sides (`79e7eb7`).
+> - **T5 BLOCKED** — connectivity tester (needs T2+T3 on-device validation first).
 
 ## Verified state (audit of `b9972d06`)
 
