@@ -15,13 +15,10 @@ import vn.unlimit.vpngate.db.VPNGateItemDao
 import vn.unlimit.vpngate.models.ExcludedApp
 import vn.unlimit.vpngate.utils.AppConfig
 import vn.unlimit.vpngate.utils.DataUtil
-import vn.unlimit.vpngate.utils.PaidServerUtil
 
 class App : Application() {
     var dataUtil: DataUtil? = null
         private set
-    @JvmField
-    var paidServerUtil: PaidServerUtil? = null
     private lateinit var appDatabase: AppDatabase
     lateinit var vpnGateItemDao: VPNGateItemDao
     lateinit var excludedAppDao: ExcludedAppDao
@@ -60,7 +57,6 @@ class App : Application() {
                 ) == 0
             ) DetailActivity::class.java else MainActivity::class.java
         )
-        paidServerUtil = PaidServerUtil(this)
     }
 
     private fun initializeDefaultExcludedApps() {

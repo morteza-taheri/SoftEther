@@ -44,14 +44,11 @@ import vn.unlimit.vpngate.App
 import vn.unlimit.vpngate.App.Companion.instance
 import vn.unlimit.vpngate.BuildConfig
 import vn.unlimit.vpngate.R
-import vn.unlimit.vpngate.activities.paid.LoginActivity
-import vn.unlimit.vpngate.activities.paid.PaidServerActivity
 import vn.unlimit.vpngate.databinding.ActivityMainBinding
 import vn.unlimit.vpngate.dialog.FilterBottomSheetDialog.Companion.newInstance
 import vn.unlimit.vpngate.dialog.FilterBottomSheetDialog.OnButtonClickListener
 import vn.unlimit.vpngate.dialog.SortBottomSheetDialog
 import vn.unlimit.vpngate.fragment.AboutFragment
-import vn.unlimit.vpngate.fragment.HelpFragment
 import vn.unlimit.vpngate.fragment.HomeFragment
 import vn.unlimit.vpngate.fragment.SettingFragment
 import vn.unlimit.vpngate.fragment.StatusFragment
@@ -59,7 +56,6 @@ import vn.unlimit.vpngate.models.VPNGateConnectionList
 import vn.unlimit.vpngate.provider.BaseProvider
 import vn.unlimit.vpngate.utils.DataUtil
 import vn.unlimit.vpngate.utils.DataUtil.Companion.isOnline
-import vn.unlimit.vpngate.utils.PaidServerUtil
 import kittoku.osc.preference.OscPrefKey
 import vn.unlimit.vpngate.viewmodels.ConnectionListViewModel
 import java.util.Objects
@@ -108,8 +104,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener,
             }
         }
     }
-    private var paidServerUtil: PaidServerUtil? = null
-
     public override fun onSaveInstanceState(outState: Bundle) {
         outState.putString("currentUrl", currentUrl)
         outState.putString("currentTitle", currentTitle)
@@ -192,10 +186,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener,
         binding.navMain.setNavigationItemSelectedListener(this)
         sortProperty = dataUtil!!.getStringSetting(SORT_PROPERTY_KEY, "")
         sortType = dataUtil!!.getIntSetting(SORT_TYPE_KEY, VPNGateConnectionList.ORDER.ASC)
-        paidServerUtil = instance!!.paidServerUtil!!
-        // Set startup screen to free server when open MainActivity
-        checkNotNull(paidServerUtil)
-        paidServerUtil!!.setStartupScreen(PaidServerUtil.StartUpScreen.FREE_SERVER)
         val filter = IntentFilter()
         filter.addAction(BaseProvider.ACTION.ACTION_CHANGE_NETWORK_STATE)
         filter.addAction(BaseProvider.ACTION.ACTION_CLEAR_CACHE)
@@ -211,7 +201,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener,
         } catch (ex: Exception) {
             Log.e(TAG, "Got exception handle support action bar", ex)
         }
-        binding.navMain.menu.setGroupVisible(R.id.menu_top, false)
         addBackPressedHandler()
         lifecycleScope.launch(Dispatchers.IO) {
             disallowLoadHome =
@@ -227,7 +216,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener,
         val prefs = PreferenceManager.getDefaultSharedPreferences(this)
         val sstpHostName = prefs.getString(OscPrefKey.HOME_HOSTNAME.toString(), "")
         val isOpenVPNFreeConnected = dataUtil!!.lastVPNConnection != null
-        val isSSTPFreeConnected = !sstpHostName.isNullOrEmpty() && !dataUtil!!.getBooleanSetting(DataUtil.IS_LAST_CONNECTED_PAID, false)
+        val isSSTPFreeConnected = !sstpHostName.isNullOrEmpty()
         binding.navMain.menu.findItem(R.id.nav_status).isVisible = isOpenVPNFreeConnected || isSSTPFreeConnected
     }
 
@@ -492,43 +481,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener,
         selectedMenuItem = menuItem
         disallowLoadHome = true
         when (menuItem.itemId) {
-            R.id.nav_get_pro -> {
-                if (dataUtil!!.hasAds() && dataUtil!!.hasProInstalled()) {
-                    val launchIntent =
-                        packageManager.getLaunchIntentForPackage("vn.unlimit.vpngatepro")
-                    if (launchIntent != null) {
-                        startActivity(launchIntent) //null pointer check in case package name was not found
-                    }
-                    finish()
-                } else {
-                    try {
-                        startActivity(
-                            Intent(
-                                Intent.ACTION_VIEW,
-                                "market://details?id=vn.unlimit.vpngatepro".toUri()
-                            )
-                        )
-                    } catch (ex: ActivityNotFoundException) {
-                        try {
-                            startActivity(
-                                Intent(
-                                    Intent.ACTION_VIEW,
-                                    "https://play.google.com/store/apps/details?id=vn.unlimit.vpngatepro".toUri()
-                                )
-                            )
-                        } catch (exception: ActivityNotFoundException) {
-                            // No activity to handle this action
-                            Log.e(
-                                TAG,
-                                "Got exception when handle onNavigationItemSelected",
-                                exception
-                            )
-                        }
-                    }
-                }
-                return false
-            }
-
             R.id.nav_home -> {
                 if (vpnGateConnectionList == null || vpnGateConnectionList!!.size() == 0) {
                     callDataServer()
@@ -538,23 +490,11 @@ class MainActivity : AppCompatActivity(), View.OnClickListener,
                 disallowLoadHome = false
             }
 
-            R.id.nav_paid_server -> {
-                if (paidServerUtil!!.isLoggedIn()) {
-                    val intentPaidServer = Intent(this, PaidServerActivity::class.java)
-                    startActivity(intentPaidServer)
-                    finish()
-                } else {
-                    val intentLogin = Intent(this, LoginActivity::class.java)
-                    startActivity(intentLogin)
-                    finish()
-                }
-            }
-
             R.id.nav_status -> {
                 val prefs = PreferenceManager.getDefaultSharedPreferences(this)
                 val sstpHostName = prefs.getString(OscPrefKey.HOME_HOSTNAME.toString(), "")
                 val isOpenVPNFreeConnected = dataUtil!!.lastVPNConnection != null
-                val isSSTPFreeConnected = !sstpHostName.isNullOrEmpty() && !dataUtil!!.getBooleanSetting(DataUtil.IS_LAST_CONNECTED_PAID, false)
+                val isSSTPFreeConnected = !sstpHostName.isNullOrEmpty()
                 if (!isOpenVPNFreeConnected && !isSSTPFreeConnected) {
                     Toast.makeText(
                         applicationContext,
@@ -573,11 +513,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener,
 
             R.id.nav_about -> {
                 replaceFragment("about")
-                stopRequest()
-            }
-
-            R.id.nav_help -> {
-                replaceFragment("help")
                 stopRequest()
             }
 
@@ -635,14 +570,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener,
                             tag
                         ) ?: SettingFragment()
                         title = resources.getString(R.string.setting)
-                    }
-
-                    "help" -> {
-                        tag = HelpFragment::class.java.name
-                        fragment = supportFragmentManager.findFragmentByTag(
-                            tag
-                        ) ?: HelpFragment()
-                        title = resources.getString(R.string.help)
                     }
 
                     "about" -> {

@@ -16,7 +16,6 @@ import com.bumptech.glide.Glide
 import vn.unlimit.vpngate.App
 import vn.unlimit.vpngate.R
 import vn.unlimit.vpngate.databinding.ActivityL2tpConnectBinding
-import vn.unlimit.vpngate.models.PaidServer
 import vn.unlimit.vpngate.models.VPNGateConnection
 import vn.unlimit.vpngate.provider.BaseProvider
 import vn.unlimit.vpngate.utils.DataUtil
@@ -82,40 +81,19 @@ class L2TPConnectActivity : AppCompatActivity(), View.OnClickListener {
                 .error(R.color.colorOverlay)
                 .into(binding.ivStep2)
             binding.btnBack.setOnClickListener(this)
-            val typeServer: Int = intent.getIntExtra(BaseProvider.L2TP_SERVER_TYPE, TYPE_FREE)
-            if (typeServer == TYPE_FREE) {
-                mVPNGateConnection = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                        intent.getParcelableExtra(BaseProvider.PASS_DETAIL_VPN_CONNECTION, VPNGateConnection::class.java)
-                } else {
-                    @Suppress("DEPRECATION")
-                    intent.getParcelableExtra(BaseProvider.PASS_DETAIL_VPN_CONNECTION)
-                }
-                binding.txtTitle.text =
-                    getString(R.string.l2tp_connect_title, mVPNGateConnection?.hostName)
-                binding.txtHint.text = getString(R.string.l2tp_connect_hint, mVPNGateConnection?.hostName)
-                if (dataUtil.getBooleanSetting(DataUtil.USE_DOMAIN_TO_CONNECT, false)) {
-                    binding.txtEndPoint.text = mVPNGateConnection?.hostName + ".opengw.net"
-                } else {
-                    binding.txtEndPoint.text = mVPNGateConnection?.ip
-                }
+            mVPNGateConnection = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    intent.getParcelableExtra(BaseProvider.PASS_DETAIL_VPN_CONNECTION, VPNGateConnection::class.java)
             } else {
-                val paidServerUtil = App.instance!!.paidServerUtil!!
-                binding.txtVpnShareSecret.text = getString(R.string.vpn_paid_shared_secret)
-                binding.txtVpnUser.text = paidServerUtil.getUserInfo()?.username
-                binding.txtVpnPw.text = getString(R.string.vpn_pw_hint)
-                val paidServer: PaidServer = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    intent.getParcelableExtra(BaseProvider.PASS_DETAIL_VPN_CONNECTION, PaidServer::class.java)!!
-                } else {
-                    @Suppress("DEPRECATION")
-                    intent.getParcelableExtra(BaseProvider.PASS_DETAIL_VPN_CONNECTION)!!
-                }
-                binding.txtTitle.text = getString(R.string.l2tp_connect_title, paidServer.serverName)
-                binding.txtHint.text = getString(R.string.l2tp_connect_hint, paidServer.serverName)
-                if (dataUtil.getBooleanSetting(DataUtil.USE_DOMAIN_TO_CONNECT, false)) {
-                    binding.txtEndPoint.text = paidServer.serverDomain
-                } else {
-                    binding.txtEndPoint.text = paidServer.serverIp
-                }
+                @Suppress("DEPRECATION")
+                intent.getParcelableExtra(BaseProvider.PASS_DETAIL_VPN_CONNECTION)
+            }
+            binding.txtTitle.text =
+                getString(R.string.l2tp_connect_title, mVPNGateConnection?.hostName)
+            binding.txtHint.text = getString(R.string.l2tp_connect_hint, mVPNGateConnection?.hostName)
+            if (dataUtil.getBooleanSetting(DataUtil.USE_DOMAIN_TO_CONNECT, false)) {
+                binding.txtEndPoint.text = mVPNGateConnection?.hostName + ".opengw.net"
+            } else {
+                binding.txtEndPoint.text = mVPNGateConnection?.ip
             }
         } catch (e: Exception) {
             e.printStackTrace()

@@ -15,10 +15,7 @@
     <color name="colorSelected">#3c124097</color>
     <color name="colorTransparent">#00000000</color>
     <color name="colorLink">#13589C</color>
-    <color name="colorPaidServer">#248758</color>
     <color name="colorGoodStatus">#23CC79</color>
-    <color name="colorPaidServerTransparent">#994EDA99</color>
-    <color name="colorPaidServerDisabled">#234737</color>
     <color name="colorBuyButton">#3E9543</color>
     <color name="colorBuyButtonFocus">#53C657</color>
     <color name="colorProgressPaid">#135488</color>

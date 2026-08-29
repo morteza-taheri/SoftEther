@@ -104,7 +104,7 @@ class StatusFragment : Fragment(), View.OnClickListener, VpnStatus.StateListener
     private var lastOpenVpnDiffOutBytes = 0L
 
     private val isFreeConnected: Boolean
-        get() = (checkStatus() || isSoftEtherConnected || isSSTPConnected) && !dataUtil!!.getBooleanSetting(DataUtil.IS_LAST_CONNECTED_PAID, false)
+        get() = checkStatus() || isSoftEtherConnected || isSSTPConnected
 
     private val isAnyConnected: Boolean
         get() = checkStatus() || isSSTPConnected || isSoftEtherConnected
@@ -276,32 +276,6 @@ class StatusFragment : Fragment(), View.OnClickListener, VpnStatus.StateListener
                         binding.btnOnOff.isActivated = false
                         binding.txtStatus.setText(R.string.sstp_disconnecting)
                     }
-                } else {
-                    // Paid connected: disconnect paid and connect free
-                    // Determine current connection type and disconnect
-                    val currentMethod = if (checkStatus()) "openvpn" else if (isSoftEtherConnected) "softether" else "sstp"
-                    if (currentMethod == "openvpn" || currentMethod == "softether") {
-                        stopVpn()
-                    } else {
-                        startVpnSSTPService(ACTION_VPN_DISCONNECT)
-                    }
-
-                    // Determine target connection method and connect
-                    val targetMethod = dataUtil!!.getStringSetting(DataUtil.LAST_CONNECT_METHOD, "openvpn")
-                    dataUtil!!.setBooleanSetting(DataUtil.IS_LAST_CONNECTED_PAID, false)
-                    Handler(Looper.getMainLooper()).postDelayed({
-                        if (targetMethod == "sstp") {
-                            connectSSTPVPN()
-                        } else if (targetMethod == "softether") {
-                            val useTcp = !dataUtil!!.getBooleanSetting(DataUtil.LAST_CONNECT_USE_UDP, false)
-                            startSoftEtherConnection(useTcp)
-                        } else {
-                            prepareVpn()
-                        }
-                        binding.txtStatus.text = getString(R.string.connecting) + " " + connectionName
-                        binding.btnOnOff.isActivated = true
-                        isConnecting = true
-                    }, 1000) // Wait 1 second for disconnection to complete
                 }
             } else {
                 if (isConnecting) {
@@ -326,7 +300,6 @@ class StatusFragment : Fragment(), View.OnClickListener, VpnStatus.StateListener
                     handleSSTPBtn()
                 } else if (method == "softether") {
                     if (!isConnecting) {
-                        dataUtil!!.setBooleanSetting(DataUtil.IS_LAST_CONNECTED_PAID, false)
                         val useTcp = !dataUtil!!.getBooleanSetting(DataUtil.LAST_CONNECT_USE_UDP, false)
                         startSoftEtherConnection(useTcp)
                         
@@ -336,7 +309,6 @@ class StatusFragment : Fragment(), View.OnClickListener, VpnStatus.StateListener
                     }
                 } else {
                     if (!isConnecting) {
-                        dataUtil!!.setBooleanSetting(DataUtil.IS_LAST_CONNECTED_PAID, false)
                         prepareVpn()
                         binding.txtStatus.text = getString(R.string.connecting) + " " + connectionName
                         binding.btnOnOff.isActivated = true
@@ -546,7 +518,7 @@ class StatusFragment : Fragment(), View.OnClickListener, VpnStatus.StateListener
     }
 
     override fun onSoftEtherTrafficUpdated(snapshot: SoftEtherTrafficSnapshot) {
-        if (isDetached() || !isSoftEtherConnected || dataUtil!!.getBooleanSetting(DataUtil.IS_LAST_CONNECTED_PAID, false)) {
+        if (isDetached() || !isSoftEtherConnected) {
             return
         }
         activity?.runOnUiThread {
@@ -557,7 +529,7 @@ class StatusFragment : Fragment(), View.OnClickListener, VpnStatus.StateListener
     }
 
     override fun onSstpTrafficUpdated(snapshot: SstpTrafficSnapshot) {
-        if (isDetached() || !isSSTPConnected || dataUtil!!.getBooleanSetting(DataUtil.IS_LAST_CONNECTED_PAID, false)) {
+        if (isDetached() || !isSSTPConnected) {
             return
         }
         activity?.runOnUiThread {
@@ -610,23 +582,22 @@ class StatusFragment : Fragment(), View.OnClickListener, VpnStatus.StateListener
 
     private fun refreshTrafficMonitor() {
         if (isDetached) return
-        val isPaidSession = dataUtil!!.getBooleanSetting(DataUtil.IS_LAST_CONNECTED_PAID, false)
         val lastConnectMethod = dataUtil!!.getStringSetting(DataUtil.LAST_CONNECT_METHOD, "openvpn")
         when {
-            isSoftEtherConnected && !isPaidSession -> {
+            isSoftEtherConnected -> {
                 onSoftEtherTrafficUpdated(SoftEtherVpnService.currentTrafficSnapshot)
             }
-            isSSTPConnected && !isPaidSession -> {
+            isSSTPConnected -> {
                 onSstpTrafficUpdated(SstpVpnService.currentTrafficSnapshot)
             }
-            checkStatus() && !isPaidSession -> {
+            checkStatus() -> {
                 renderOpenVpnTrafficSnapshot()
             }
-            lastConnectMethod == "softether" && !isPaidSession &&
+            lastConnectMethod == "softether" &&
                 SoftEtherVpnService.lastTrafficSnapshot != SoftEtherTrafficSnapshot.EMPTY -> {
                 renderSoftEtherTrafficSnapshot(SoftEtherVpnService.lastTrafficSnapshot)
             }
-            lastConnectMethod == "sstp" && !isPaidSession &&
+            lastConnectMethod == "sstp" &&
                 SstpVpnService.lastTrafficSnapshot != SstpTrafficSnapshot.EMPTY -> {
                 renderSstpTrafficSnapshot(SstpVpnService.lastTrafficSnapshot)
             }
@@ -699,29 +670,21 @@ class StatusFragment : Fragment(), View.OnClickListener, VpnStatus.StateListener
     ) {
         activity?.runOnUiThread {
             try {
-                // Don't override status text if SSTP is connected or if it's a paid connection
-                if (!isSSTPConnected && !isSoftEtherConnected && !dataUtil!!.getBooleanSetting(DataUtil.IS_LAST_CONNECTED_PAID, false)) {
+                // Don't override status text if SSTP is connected
+                if (!isSSTPConnected && !isSoftEtherConnected) {
                     binding.txtStatus.text = VpnStatus.getLastCleanLogMessage(mContext)
                 }
                 dataUtil!!.setBooleanSetting(DataUtil.USER_ALLOWED_VPN, true)
                 when (status) {
                     ConnectionStatus.LEVEL_CONNECTED -> {
-                        if (dataUtil!!.getBooleanSetting(DataUtil.IS_LAST_CONNECTED_PAID, false)) {
-                            // Connected via paid server, treat as disconnected state
-                            binding.btnOnOff.isActivated = false
-                            binding.txtStatus.text =
-                                String.format(getString(R.string.tap_to_connect_last), connectionName)
-                            binding.txtCheckIp?.visibility = View.INVISIBLE
-                        } else {
-                            binding.btnOnOff.isActivated = true
-                            isConnecting = false
-                            isAuthFailed = false
-                            binding.txtStatus.text = getString(R.string.connected_to, connectionName)
-                            binding.txtCheckIp?.visibility = View.VISIBLE
-                            val isStartUpDetail =
-                                dataUtil!!.getIntSetting(DataUtil.SETTING_STARTUP_SCREEN, 0) == 0
-                            OpenVPNService.setNotificationActivityClass(if (isStartUpDetail) DetailActivity::class.java else MainActivity::class.java)
-                        }
+                        binding.btnOnOff.isActivated = true
+                        isConnecting = false
+                        isAuthFailed = false
+                        binding.txtStatus.text = getString(R.string.connected_to, connectionName)
+                        binding.txtCheckIp?.visibility = View.VISIBLE
+                        val isStartUpDetail =
+                            dataUtil!!.getIntSetting(DataUtil.SETTING_STARTUP_SCREEN, 0) == 0
+                        OpenVPNService.setNotificationActivityClass(if (isStartUpDetail) DetailActivity::class.java else MainActivity::class.java)
                     }
 
                     ConnectionStatus.LEVEL_WAITING_FOR_USER_INPUT -> dataUtil!!.setBooleanSetting(
@@ -925,19 +888,11 @@ class StatusFragment : Fragment(), View.OnClickListener, VpnStatus.StateListener
                     val connectedIp =
                         prefs.getString(OscPrefKey.HOME_CONNECTED_IP.toString(), "")
                     if ("" != connectedIp) {
-                        if (dataUtil!!.getBooleanSetting(DataUtil.IS_LAST_CONNECTED_PAID, false)) {
-                            // Paid SSTP connected, treat as disconnected state
-                            binding.txtStatus.text =
-                                String.format(getString(R.string.tap_to_connect_last), connectionName)
-                            binding.btnOnOff.isActivated = false
-                            binding.txtCheckIp?.visibility = View.INVISIBLE
-                        } else {
-                            binding.txtStatus.text = getString(R.string.sstp_connected, connectedIp)
-                            isSSTPConnected = true
-                            binding.btnOnOff.isActivated = true
-                            binding.txtCheckIp?.visibility = View.VISIBLE
-                            onSstpTrafficUpdated(SstpVpnService.currentTrafficSnapshot)
-                        }
+                        binding.txtStatus.text = getString(R.string.sstp_connected, connectedIp)
+                        isSSTPConnected = true
+                        binding.btnOnOff.isActivated = true
+                        binding.txtCheckIp?.visibility = View.VISIBLE
+                        onSstpTrafficUpdated(SstpVpnService.currentTrafficSnapshot)
                     }
                 }
             }
@@ -949,18 +904,10 @@ class StatusFragment : Fragment(), View.OnClickListener, VpnStatus.StateListener
         if (isSSTPConnected) {
             val connectedIp = prefs.getString(OscPrefKey.HOME_CONNECTED_IP.toString(), "")
             if (connectedIp!!.isNotEmpty()) {
-                if (dataUtil!!.getBooleanSetting(DataUtil.IS_LAST_CONNECTED_PAID, false)) {
-                    // Paid SSTP was already connected, treat as disconnected
-                    binding.txtStatus.text = String.format(getString(R.string.tap_to_connect_last), connectionName)
-                    binding.btnOnOff.isActivated = false
-                    binding.txtCheckIp?.visibility = View.INVISIBLE
-                    isSSTPConnected = false  // Treat as not connected
-                } else {
-                    binding.txtStatus.text = getString(R.string.sstp_connected, connectedIp)
-                    binding.btnOnOff.isActivated = true
-                    binding.txtCheckIp?.visibility = View.VISIBLE
-                    refreshTrafficMonitor()
-                }
+                binding.txtStatus.text = getString(R.string.sstp_connected, connectedIp)
+                binding.btnOnOff.isActivated = true
+                binding.txtCheckIp?.visibility = View.VISIBLE
+                refreshTrafficMonitor()
             }
         }
     }
@@ -1050,20 +997,8 @@ class StatusFragment : Fragment(), View.OnClickListener, VpnStatus.StateListener
             startVpnSSTPService(ACTION_VPN_DISCONNECT)
             Handler(Looper.getMainLooper()).postDelayed({ connectSSTPVPN() }, 100)
         } else if (!isSSTPConnected) {
-            // Check if SSTP is actually running (paid SSTP case)
-            if (prefs.getBoolean(OscPrefKey.ROOT_STATE.toString(), false)) {
-                // Paid SSTP running, disconnect it first
-                startVpnSSTPService(ACTION_VPN_DISCONNECT)
-                Handler(Looper.getMainLooper()).postDelayed({
-                    dataUtil!!.setBooleanSetting(DataUtil.IS_LAST_CONNECTED_PAID, false)
-                    dataUtil!!.lastVPNConnection = mVpnGateConnection
-                    startSSTPVPN()
-                }, 500)
-            } else {
-                dataUtil!!.setBooleanSetting(DataUtil.IS_LAST_CONNECTED_PAID, false)
-                dataUtil!!.lastVPNConnection = mVpnGateConnection
-                startSSTPVPN()
-            }
+            dataUtil!!.lastVPNConnection = mVpnGateConnection
+            startSSTPVPN()
         } else {
             startVpnSSTPService(ACTION_VPN_DISCONNECT)
             binding.btnOnOff.isActivated = false

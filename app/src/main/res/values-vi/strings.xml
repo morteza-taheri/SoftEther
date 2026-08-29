@@ -167,143 +167,30 @@
     <string name="l2tp_connect_hint">Để kết nối đến máy chủ \"%1$s\" bằng L2TP/IPSec VPN. Vui lòng làm theo các hướng dẫn bên dưới</string>
     <string name="l2tp_connect_add">1. Thêm mới kết nối VPN tương tự bên dưới</string>
     <string name="l2tp_tap_to_connect">2. Bấm vào kết nối VPN vừa tạo để kết nối</string>
-    <!-- PaidServer -->
-    <string name="invite_paid_server_title">Chúng tôi vừa ra mắt tính năng máy chủ trả phí.</string>
-    <string name="invite_paid_server_message">Bạn có muốn dùng thử ngay không?</string>
-    <string name="title_activity_paid_server">Paid Server</string>
-    <string name="title_activity_account_activate">Kích hoạt tài khoản</string>
     <string name="title_home">Home</string>
     <string name="title_servers">Máy chủ</string>
     <string name="title_free_server">Server miễn phí</string>
     <string name="title_personal">Cá nhân</string>
-    <string name="vpn_pw_hint">[Mật khẩu của bạn]</string>
     <!-- Login screen -->
-    <string name="title_activity_login">Đăng nhập vào máy chủ trả phí</string>
-    <string name="title_activity_signup">Đăng ký tài khoản máy chủ trả phí</string>
-    <string name="prompt_user">Tài khoản</string>
-    <string name="prompt_full_name">Họ tên</string>
-    <string name="prompt_password">Mật khẩu</string>
-    <string name="action_sign_in">Đăng nhập</string>
-    <string name="action_sign_up">Đăng ký</string>
-    <string name="action_forgot_pass">Quên mật khẩu?</string>
-    <string name="action_back_to_free">Quay lại máy chủ miễn phí</string>
-    <string name="invalid_username">Tài khoản không hợp lệ</string>
-    <string name="invalid_password">Mật khẩu phải chứa nhiều hơn 5 ký tự</string>
-    <string name="login_failed">Đăng nhập thất bại. Tài khoản hoặt mật khẩu không đúng.</string>
-    <string name="please_activate_account_first">Không thể đăng nhập. Vui lòng mở email và kích hoạt tài khoản trước.</string>
-    <string name="login_loading_text">Đang đăng nhập…</string>
-    <string name="action_hide_password">Ẩn</string>
-    <string name="action_show_password">Hiện</string>
     <string name="default_loading_text">Đang tải…</string>
-    <string name="username_and_password_is_required">Tài khoản và mật khẩu là bắt buộc nhập</string>
-    <string name="account_is_banned_no_reason">Tài khoản của bạn đã bị khoá.</string>
-    <string name="account_did_not_exists">Tài khoản không tồn tại.</string>
-    <string name="account_is_banned">Tài khoản của bạn đã bị khoá với lý do: %1$s</string>
-    <string name="session_expires">Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại!</string>
     <!-- Sign up screen -->
-    <string name="prompt_email">Email</string>
-    <string name="prompt_birthday">Ngày sinh</string>
-    <string name="timezone_field">Múi giờ</string>
-    <string name="prompt_timezone">Múi giờ. Ví dụ: Asia/Ho_Chi_Minh</string>
-    <string name="prompt_retype_password">Nhập lại mật khẩu</string>
-    <string name="validate_field_cannot_empty">%1$s không được bỏ trống</string>
-    <string name="validate_field_exist_in_system">%1$s đã tổn tại. Vui lòng chọn tài khoản khác</string>
-    <string name="hint_captcha_label">Trả lời phép toán phía dưới</string>
-    <string name="prompt_captcha_answer">Kết quả</string>
-    <string name="error_get_captcha">Lấy captcha từ máy chủ gặp lỗi. Vui lòng thử lại</string>
-    <string name="reloading_captcha">Đang tải captcha…</string>
-    <string name="hint_captcha_tap_to_reload">Chạm vào ảnh captcha để đổi ảnh khác</string>
-    <string name="invalid_timezone">Múi giờ không hợp lệ. Hãy gõ từ khoá rồi chọn từ danh sách bật lên.</string>
-    <string name="register_success">Đăng ký thành công. Vui lòng kiểm tra email để kích hoạt tài khoản</string>
-    <string name="register_failed_title">Đăng ký thất bại. Hãy kiểm tra danh sách lỗi.</string>
-    <string name="username_is_invalid">Tài khoản không hợp lệ. Tài khoản phải chứa 5 – 30 ký tự thường và số</string>
-    <string name="password_is_invalid">Mật khẩu không hợp lệ. Mật khẩu phải chứa 5 – 30 ký tự và số, cho phép các ký tự đặc biệt ($ ! * . -)</string>
-    <string name="email_is_invalid">Email không hợp lệ, vui lòng kiểm tra.</string>
-    <string name="re_type_password_does_not_match">Nhập lại mật khẩu không khớp.</string>
-    <string name="birthday_is_invalid">Ngày sinh không hợp lệ</string>
-    <string name="captcha_answer_is_not_correct">Captcha không chính xác</string>
     <!-- Activate screen -->
-    <string name="account_activate_failed">Kích hoạt tài khoản thất bại: %1$s</string>
-    <string name="account_activate_failed_already_activate">Tài khoản đã được kích hoạt trước đó</string>
-    <string name="account_activate_failed_invalid_request">Yêu cầu kích hoạt không hợp lệ</string>
-    <string name="account_activating">Đang kích hoạt tài khoản…</string>
-    <string name="account_activate_successful">Tài khoản đã được kích hoạt thành công</string>
     <!-- Forgot pass screen -->
-    <string name="title_activity_forgot_pass">Quên mật khẩu</string>
-    <string name="action_reset_pass">Đặt lại mật khẩu</string>
-    <string name="request_forgot_pass_success">Yêu cầu đặt lại mật khẩu thành công. Vui lòng kiểm tra email để tiếp tục.</string>
-    <string name="request_forgot_pass_failure">Yêu cầu đặt lại mật khẩu thất bại. Vui lòng thử lại</string>
-    <string name="account_did_not_exist">Tài khoản không tồn tại</string>
     <!-- Reset pass screen -->
-    <string name="title_activity_reset_pass">Đặt lại mật khẩu</string>
-    <string name="prompt_new_password">Mật khẩu mới</string>
-    <string name="prompt_re_new_password">Nhập lại mật khẩu mới</string>
-    <string name="action_reset_password">Đặt lại mật khẩu</string>
-    <string name="reset_pass_token_can_not_empty">Mã đặt lại mật khẩu không thể rỗng. Đã đóng màn hình đặt lại mật khẩu</string>
-    <string name="checking_reset_pass_token">Đang kiểm tra mã đặt lại mật khẩu\nVui lòng đợi trong giây lát</string>
-    <string name="invalid_reset_pass_token">Mã đặt lại mật khẩu không đúng. Dùng nút phía đưới quay lại.</string>
-    <string name="password_updated_you_can_login_now">Mật khẩu đã được cập nhật. Bạn có thể đăng nhập rồi!</string>
-    <string name="this_password_is_used_before_please_choose_another">Mật khẩu này đã từng sủ dụng. Vui lòng chọn mật khẩu khác nhé!</string>
-    <string name="change_password_failed_with_unknown_error">Đặt lại mật khẩu thất bại do lỗi không xác định. Vui lòng thử lại!</string>
     <!-- Home screen -->
-    <string name="home_paid_welcome">Xin chào %1$s</string>
-    <string name="remaining_data_size">Dung lượng còn lại</string>
-    <string name="calculating_data_size">Đang tính toán…</string>
-    <string name="app_author_server">Tác giả ứng dụng</string>
-    <string name="community_server">Cộng đồng</string>
     <string name="usage_chart">Biểu đồ sử dụng</string>
     <string name="session_list">Danh sách phiên</string>
-    <string name="chart_transferred">Dung lượng (MB)</string>
     <array name="chart_type">
         <item>Hàng giờ</item>
         <item>Hàng ngày</item>
         <item>Hàng tháng</item>
     </array>
-    <string name="server_name">Tên máy chủ:</string>
-    <string name="client_ip">Client IP:</string>
-    <string name="transferred_data">Dung lượng đã dùng:</string>
-    <string name="session_id">Session ID:</string>
-    <string name="view_detail">Chi tiết</string>
-    <string name="disconnect_session">Ngắt kết nối</string>
-    <string name="open_detail_server">Mở chi tiêt máy chủ</string>
-    <string name="created">Đã tạo:</string>
-    <string name="updated">Đã cập nhật:</string>
     <string name="you_have_not_any_connected_session">Bạn không có phiên kết nối nào.</string>
-    <string name="client_public_ip">IP người dùng:</string>
-    <string name="alert_disconnect_confirm">Bạn chắc chắc muốn ngắt kết nối phiên (%1$s) và cấm IP (%2$s) kết nối lại máy chủ (%3$s) trong vòng 30 phút?</string>
-    <string name="sure_btn">Chắc chắn</string>
-    <string name="cancel_btn">Huỷ bỏ</string>
-    <string name="disconnecting_session">Đang ngắt kết nối phiên</string>
-    <string name="disconnect_success">Đã ngắt kết nối (%1$s)</string>
-    <string name="disconnect_failed">Ngắt kết nối (%1$s) thất bại</string>
-    <string name="current_session">[Phiên hiện tại]</string>
-    <string name="disconnect_in_notification_or_detail_server">Ngắt kết nối trên thông báo hoặc chi tiết máy chủ.</string>
     <!-- Personal -->
-    <string name="personal_notification_setting">Cài đặt thông báo</string>
-    <string name="personal_profile">Hồ sơ</string>
-    <string name="personal_change_password">Đổi mật khẩu</string>
-    <string name="delete_account_btn">Xoá tài khoản</string>
-    <string name="delete_account_dialog_title">Xác nhận xoá tài khoản</string>
-    <string name="delete_account_description">Bạn có chắc chắn muốn xoá tài khoản?\nVui lòng lưu ý hành động này không thể hoàn tác</string>
-    <string name="account_deleted">Đã xoá tài khoản!</string>
-    <string name="account_delete_failed">Xoá tài khoản thất bại!</string>
     <!-- Notification setting -->
-    <string name="receive_notification">Nhận thông báo push trên thiết bị này</string>
-    <string name="notification_setting_hint">Chúng tôi sẽ gửi thông báo khi tài khoản của bạn sắp hết dung lượng hoặc có thay đổi về thông tin tài khoản</string>
     <!-- Change pass -->
-    <string name="password_changed">Mật khẩu đã thay đổi. Vui lòng đăng nhập lại!</string>
-    <string name="incorrect_current_password">Mật khẩu hiện tại không đúng.</string>
-    <string name="action_save">Lưu</string>
-    <string name="new_password_is_invalid">Mật khẩu mới không hợp lệ. Mật khẩu phải chứa 5 – 30 ký tự và số, cho phép các ký tự đặc biệt ($ ! * . -)</string>
-    <string name="new_password_must_not_same_as_current_password">Mật khẩu mới không được giống mật khẩu hiện tại.</string>
     <!-- Profile -->
-    <string name="update_profile_success">Cập nhật hồ sơ thành công!</string>
-    <string name="update_profile_error">Cập nhật hồ sơ thất bại. Vui lòng thử lại!</string>
     <!-- Check app install source error message -->
-    <string name="install_source_error_title">Cài đặt không hợp lệ</string>
-    <string name="install_source_error_message">Bạn đang sử dụng phiên bản app được cài đặt trái phép. Vui lòng cài đặt phiên bản hợp lệ từ CH Play</string>
-    <string name="install_source_error_open_play_store">Mở CH Play</string>
-    <string name="notification_channel_name">Hết dung lượng</string>
     <!-- Exclude Apps -->
     <string name="app_icon">Biểu tượng ứng dụng</string>
     <string name="add_apps_to_exclude">Thêm ứng dụng cần loại trừ</string>

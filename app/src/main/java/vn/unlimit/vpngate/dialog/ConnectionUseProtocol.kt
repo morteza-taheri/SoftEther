@@ -15,12 +15,10 @@ import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import vn.unlimit.vpngate.R
 import vn.unlimit.vpngate.databinding.LayoutConnectUseProtocolDialogBinding
-import vn.unlimit.vpngate.models.PaidServer
 import vn.unlimit.vpngate.models.VPNGateConnection
 
 class ConnectionUseProtocol : BottomSheetDialogFragment(), View.OnClickListener {
     private var mVpnGateConnection: VPNGateConnection? = null
-    private var paidServer: PaidServer? = null
     private var clickResult: ClickResult? = null
     private lateinit var binding: LayoutConnectUseProtocolDialogBinding
 
@@ -54,10 +52,6 @@ class ConnectionUseProtocol : BottomSheetDialogFragment(), View.OnClickListener 
         if (mVpnGateConnection != null) {
             binding.btnUseTcp.text = "TCP " + mVpnGateConnection!!.tcpPort
             binding.btnUseUdp.text = "UDP " + mVpnGateConnection!!.udpPort
-        } else if (paidServer != null) {
-            binding.btnUseTcp.background = ResourcesCompat.getDrawable(requireContext().resources, R.drawable.selector_paid_button, requireActivity().theme)
-            binding.btnUseTcp.text = "TCP " + paidServer!!.tcpPort
-            binding.btnUseUdp.text = "UDP " + paidServer!!.udpPort
         }
         return binding.root
     }
@@ -85,13 +79,6 @@ class ConnectionUseProtocol : BottomSheetDialogFragment(), View.OnClickListener 
         ): ConnectionUseProtocol {
             val connectionUseProtocol = ConnectionUseProtocol()
             connectionUseProtocol.mVpnGateConnection = vpnGateConnection
-            connectionUseProtocol.clickResult = clickResult
-            return connectionUseProtocol
-        }
-
-        fun newInstance(paidServer: PaidServer?, clickResult: ClickResult?): ConnectionUseProtocol {
-            val connectionUseProtocol = ConnectionUseProtocol()
-            connectionUseProtocol.paidServer = paidServer
             connectionUseProtocol.clickResult = clickResult
             return connectionUseProtocol
         }

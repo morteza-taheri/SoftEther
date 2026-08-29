@@ -328,7 +328,6 @@ class DetailActivity : AppCompatActivity(), View.OnClickListener, VpnStatus.Stat
                         isSSTPConnected = true
                         isConnecting = false
                         isSSTPConnectOrDisconnecting = false
-                        dataUtil.setBooleanSetting(DataUtil.IS_LAST_CONNECTED_PAID, false)
                         // Only reflect the connection on screen when it belongs to this server
                         val sstpHostName = prefs.getString(OscPrefKey.HOME_HOSTNAME.toString(), "")
                         if (mVpnGateConnection != null && sstpHostName == mVpnGateConnection!!.calculateHostName) {
@@ -537,7 +536,6 @@ class DetailActivity : AppCompatActivity(), View.OnClickListener, VpnStatus.Stat
                             val isStartUpDetail =
                                 dataUtil.getIntSetting(DataUtil.SETTING_STARTUP_SCREEN, 0) == 0
                             OpenVPNService.setNotificationActivityClass(if (isStartUpDetail) DetailActivity::class.java else MainActivity::class.java)
-                            dataUtil.setBooleanSetting(DataUtil.IS_LAST_CONNECTED_PAID, false)
                         }
                         isConnecting = false
                         isAuthFailed = false

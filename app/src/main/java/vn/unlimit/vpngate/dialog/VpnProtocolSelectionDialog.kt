@@ -14,7 +14,6 @@ import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import vn.unlimit.vpngate.R
 import vn.unlimit.vpngate.databinding.DialogVpnProtocolSelectionBinding
-import vn.unlimit.vpngate.models.PaidServer
 import vn.unlimit.vpngate.models.VPNGateConnection
 
 /**
@@ -253,23 +252,6 @@ class VpnProtocolSelectionDialog : BottomSheetDialogFragment() {
                 seUdpSupported = connection?.seUdpSupported == true
                 sstpSupport = connection?.isSSTPSupport() == true
                 isUdpOnly = connection?.isUdpOnly == true
-                setSoftEtherAvailable(isSoftEtherAvailable)
-            }
-        }
-
-        fun newInstance(
-            server: PaidServer?,
-            isSoftEtherAvailable: Boolean = true
-        ): VpnProtocolSelectionDialog {
-            return VpnProtocolSelectionDialog().apply {
-                serverName = server?.serverDomain ?: ""
-                serverCountry = server?.serverLocation ?: ""
-                tcpPort = server?.tcpPort ?: 0
-                udpPort = server?.udpPort ?: 0
-                seTcpPort = server?.tcpPort ?: 0
-                seUdpPort = server?.udpPort ?: 0
-                sstpSupport = server?.isSSTPSupport() == true
-                isUdpOnly = server?.isUdpOnly == true
                 setSoftEtherAvailable(isSoftEtherAvailable)
             }
         }
