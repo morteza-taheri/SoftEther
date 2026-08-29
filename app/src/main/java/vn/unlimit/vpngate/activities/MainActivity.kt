@@ -49,6 +49,7 @@ import vn.unlimit.vpngate.dialog.FilterBottomSheetDialog.Companion.newInstance
 import vn.unlimit.vpngate.dialog.FilterBottomSheetDialog.OnButtonClickListener
 import vn.unlimit.vpngate.dialog.SortBottomSheetDialog
 import vn.unlimit.vpngate.fragment.AboutFragment
+import vn.unlimit.vpngate.fragment.AutoModeFragment
 import vn.unlimit.vpngate.fragment.HomeFragment
 import vn.unlimit.vpngate.fragment.SettingFragment
 import vn.unlimit.vpngate.fragment.StatusFragment
@@ -490,6 +491,10 @@ class MainActivity : AppCompatActivity(), View.OnClickListener,
                 disallowLoadHome = false
             }
 
+            R.id.nav_auto_mode -> {
+                replaceFragment("auto")
+            }
+
             R.id.nav_status -> {
                 val prefs = PreferenceManager.getDefaultSharedPreferences(this)
                 val sstpHostName = prefs.getString(OscPrefKey.HOME_HOSTNAME.toString(), "")
@@ -554,6 +559,14 @@ class MainActivity : AppCompatActivity(), View.OnClickListener,
                         fragment = supportFragmentManager.findFragmentByTag(
                             tag
                         ) ?: HomeFragment()
+                    }
+
+                    "auto" -> {
+                        tag = AutoModeFragment::class.java.name
+                        fragment = supportFragmentManager.findFragmentByTag(
+                            tag
+                        ) ?: AutoModeFragment()
+                        title = resources.getString(R.string.auto_mode)
                     }
 
                     "status" -> {

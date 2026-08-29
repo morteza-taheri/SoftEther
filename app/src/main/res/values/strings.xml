@@ -199,6 +199,22 @@
     <string name="l2tp_connect_hint">To connect to server \"%1$s\" via L2TP/IPSec VPN. Please follow several step bellow</string>
     <string name="l2tp_connect_add">1. Add new VPN Connection in VPN Setting like this</string>
     <string name="l2tp_tap_to_connect">2. Tap to created VPN Connection to connect</string>
+    <!-- Auto Mode -->
+    <string name="auto_mode">Auto Mode</string>
+    <string name="setting_auto_protocol_label">Default VPN Protocol</string>
+    <string name="auto_mode_state_disconnected">Disconnected</string>
+    <string name="auto_mode_state_connecting">Connecting…</string>
+    <string name="auto_mode_state_connected">Connected</string>
+    <string name="auto_mode_state_error">Error</string>
+    <string name="auto_mode_attempt_progress">Attempting server %1$d of %2$d</string>
+    <string name="auto_mode_attempt_n_of_m">Attempt: %1$d / %2$d</string>
+    <string name="auto_mode_server_name">Server: %1$s</string>
+    <string name="auto_mode_server_ip">IP: %1$s</string>
+    <string name="auto_mode_server_protocol">Protocol: %1$s</string>
+    <string name="auto_mode_server_speed">Speed: %1$d Mbps</string>
+    <string name="auto_mode_server_ping">Ping: %1$d ms</string>
+    <string name="auto_mode_error_no_server">Could not connect to any available server.</string>
+    <string name="auto_mode_error_generic">Auto Mode failed. Tap to try again.</string>
     <string name="title_home">Home</string>
     <string name="title_servers">Servers</string>
     <string name="title_free_server">Free Server</string>

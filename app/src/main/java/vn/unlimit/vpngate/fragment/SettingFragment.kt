@@ -61,6 +61,8 @@ class SettingFragment : Fragment(), View.OnClickListener, AdapterView.OnItemSele
         binding.lnUdp.setOnClickListener(this)
         binding.swUdp.setChecked(dataUtil.getBooleanSetting(DataUtil.INCLUDE_UDP_SERVER, true))
         binding.swUdp.setOnCheckedChangeListener(this)
+        binding.lnAutoProtocol.setOnClickListener(this)
+        updateAutoProtocolLabel()
         val spinnerInit = SpinnerInit(context, binding.spinCacheTime)
         val listCacheTime = resources.getStringArray(R.array.setting_cache_time)
         spinnerInit.setStringArray(
@@ -232,6 +234,10 @@ class SettingFragment : Fragment(), View.OnClickListener, AdapterView.OnItemSele
     }
 
     override fun onClick(view: View) {
+        if (view == binding.lnAutoProtocol) {
+            showAutoProtocolPicker()
+            return
+        }
         when(view) {
             binding.btnClearCache -> clearListServerCache(true)
             binding.lnBlockAds -> binding.swBlockAds.isChecked = !binding.swBlockAds.isChecked
@@ -240,6 +246,35 @@ class SettingFragment : Fragment(), View.OnClickListener, AdapterView.OnItemSele
             binding.lnDomain -> binding.swDomain.isChecked = !binding.swDomain.isChecked
             binding.lnNotifySpeed -> binding.swNotifySpeed.isChecked = !binding.swNotifySpeed.isChecked
         }
+    }
+
+    /** §24: Default VPN Protocol picker for Auto Mode. */
+    private fun showAutoProtocolPicker() {
+        val protocols = vn.unlimit.vpngate.automode.AutoModeProtocol.entries
+        val labels = protocols.map { it.id.lowercase().replace('_', ' ') }.toTypedArray()
+        val current = vn.unlimit.vpngate.automode.AutoModeProtocol.fromId(
+            dataUtil.getStringSetting(DataUtil.SETTING_DEFAULT_VPN_PROTOCOL, null)
+        )
+        val checked = protocols.indexOf(current)
+        androidx.appcompat.app.AlertDialog.Builder(requireContext())
+            .setTitle(R.string.setting_auto_protocol_label)
+            .setSingleChoiceItems(labels, checked) { dialog, which ->
+                dataUtil.setStringSetting(
+                    DataUtil.SETTING_DEFAULT_VPN_PROTOCOL,
+                    protocols[which].id
+                )
+                updateAutoProtocolLabel()
+                dialog.dismiss()
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun updateAutoProtocolLabel() {
+        val current = vn.unlimit.vpngate.automode.AutoModeProtocol.fromId(
+            dataUtil.getStringSetting(DataUtil.SETTING_DEFAULT_VPN_PROTOCOL, null)
+        )
+        binding.txtAutoProtocolValue.text = current.id.lowercase().replace('_', ' ')
     }
 
     private fun hideKeyBroad() {
