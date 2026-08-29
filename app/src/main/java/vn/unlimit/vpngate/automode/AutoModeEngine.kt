@@ -39,7 +39,7 @@ object AutoModeEngine {
             val du = dataUtil ?: vn.unlimit.vpngate.App.instance!!.dataUtil!!
             val adapter = AndroidConnectionAdapter(vn.unlimit.vpngate.App.instance!!, du)
             TunnelStateWatcher.attach(vn.unlimit.vpngate.App.instance!!)
-            val created = AutoModeController(
+                        val created = AutoModeController(
                 scope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
                 adapter = adapter,
                 protocolProvider = {
@@ -53,6 +53,8 @@ object AutoModeEngine {
                     du.setStringSetting(DataUtil.AUTO_LAST_SUCCESS_PROTOCOL, protocol.id)
                     AutoModeRun.lastSuccess = candidate
                 },
+                // §3 §4 §5 §14 Read timeout from Settings per attempt (per-server, not total)
+                attemptTimeoutMs = du.getAutoModeTimeoutSeconds().toLong() * 1000,
             )
             controller = created
             return created

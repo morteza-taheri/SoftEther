@@ -202,6 +202,7 @@
     <!-- Auto Mode -->
     <string name="auto_mode">Auto Mode</string>
     <string name="setting_auto_protocol_label">Default VPN Protocol</string>
+    <string name="setting_auto_timeout_label">Auto Mode Connection Timeout</string>
     <string name="auto_mode_state_disconnected">Disconnected</string>
     <string name="auto_mode_state_connecting">Connecting…</string>
     <string name="auto_mode_state_connected">Connected</string>

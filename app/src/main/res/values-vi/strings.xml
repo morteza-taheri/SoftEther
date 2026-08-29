@@ -170,6 +170,7 @@
     <!-- Auto Mode -->
     <string name="auto_mode">Chế độ tự động</string>
     <string name="setting_auto_protocol_label">Giao thức VPN mặc định</string>
+    <string name="setting_auto_timeout_label">Thời gian chờ kết nối chế độ tự động</string>
     <string name="auto_mode_state_disconnected">Đã ngắt kết nối</string>
     <string name="auto_mode_state_connecting">Đang kết nối…</string>
     <string name="auto_mode_state_connected">Đã kết nối</string>

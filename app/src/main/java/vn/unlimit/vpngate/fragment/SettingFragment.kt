@@ -61,8 +61,10 @@ class SettingFragment : Fragment(), View.OnClickListener, AdapterView.OnItemSele
         binding.lnUdp.setOnClickListener(this)
         binding.swUdp.setChecked(dataUtil.getBooleanSetting(DataUtil.INCLUDE_UDP_SERVER, true))
         binding.swUdp.setOnCheckedChangeListener(this)
-        binding.lnAutoProtocol.setOnClickListener(this)
+                binding.lnAutoProtocol.setOnClickListener(this)
         updateAutoProtocolLabel()
+        binding.lnAutoTimeout.setOnClickListener(this)
+        updateAutoTimeoutLabel()
         val spinnerInit = SpinnerInit(context, binding.spinCacheTime)
         val listCacheTime = resources.getStringArray(R.array.setting_cache_time)
         spinnerInit.setStringArray(
@@ -238,6 +240,10 @@ class SettingFragment : Fragment(), View.OnClickListener, AdapterView.OnItemSele
             showAutoProtocolPicker()
             return
         }
+        if (view == binding.lnAutoTimeout) {
+            showAutoTimeoutPicker()
+            return
+        }
         when(view) {
             binding.btnClearCache -> clearListServerCache(true)
             binding.lnBlockAds -> binding.swBlockAds.isChecked = !binding.swBlockAds.isChecked
@@ -270,11 +276,33 @@ class SettingFragment : Fragment(), View.OnClickListener, AdapterView.OnItemSele
             .show()
     }
 
-    private fun updateAutoProtocolLabel() {
+      private fun updateAutoProtocolLabel() {
         val current = vn.unlimit.vpngate.automode.AutoModeProtocol.fromId(
             dataUtil.getStringSetting(DataUtil.SETTING_DEFAULT_VPN_PROTOCOL, null)
         )
         binding.txtAutoProtocolValue.text = current.id.lowercase().replace('_', ' ')
+    }
+
+    /** §3 §4 §5 §13 Auto Mode per-server connection timeout picker (5–60 seconds). */
+    private fun showAutoTimeoutPicker() {
+        val current = dataUtil.getAutoModeTimeoutSeconds()
+        val values = (5..60).toList().toTypedArray()
+        val labels = values.map { "$it seconds" }.toTypedArray()
+        val checked = values.indexOf(current)
+        androidx.appcompat.app.AlertDialog.Builder(requireContext())
+            .setTitle(R.string.setting_auto_timeout_label)
+            .setSingleChoiceItems(labels, checked) { dialog, which ->
+                dataUtil.setAutoModeTimeoutSeconds(values[which])
+                updateAutoTimeoutLabel()
+                dialog.dismiss()
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun updateAutoTimeoutLabel() {
+        val seconds = dataUtil.getAutoModeTimeoutSeconds()
+        binding.txtAutoTimeoutValue.text = "$seconds seconds"
     }
 
     private fun hideKeyBroad() {

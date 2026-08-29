@@ -203,10 +203,18 @@ class DataUtil(context: Context?) {
         return sharedPreferencesSetting!!.getBoolean(key, defVal)
     }
 
-    fun setBooleanSetting(key: String?, value: Boolean) {
+        fun setBooleanSetting(key: String?, value: Boolean) {
         val editor = sharedPreferencesSetting!!.edit()
         editor.putBoolean(key, value)
         editor.apply()
+    }
+
+    // §3 §4 §5 Auto Mode connection timeout per-server (5–60 seconds, default 12)
+    fun getAutoModeTimeoutSeconds(): Int =
+        getIntSetting(SETTING_AUTO_MODE_TIMEOUT_SECONDS, 12).coerceIn(5, 60)
+
+    fun setAutoModeTimeoutSeconds(seconds: Int) {
+        setIntSetting(SETTING_AUTO_MODE_TIMEOUT_SECONDS, seconds.coerceIn(5, 60))
     }
 
     fun hasAds(): Boolean {
@@ -271,7 +279,8 @@ class DataUtil(context: Context?) {
         const val USE_DOMAIN_TO_CONNECT: String = "USE_DOMAIN_TO_CONNECT"
         const val SETTING_STARTUP_SCREEN: String = "SETTING_STARTUP_SCREEN"
         const val SETTING_NOTIFY_SPEED: String = "SETTING_NOTIFY_SPEED"
-        const val SETTING_DEFAULT_VPN_PROTOCOL: String = "SETTING_DEFAULT_VPN_PROTOCOL"
+                const val SETTING_DEFAULT_VPN_PROTOCOL: String = "SETTING_DEFAULT_VPN_PROTOCOL"
+        const val SETTING_AUTO_MODE_TIMEOUT_SECONDS: String = "SETTING_AUTO_MODE_TIMEOUT_SECONDS"
         const val AUTO_LAST_SUCCESS_HOST: String = "AUTO_LAST_SUCCESS_HOST"
         const val AUTO_LAST_SUCCESS_PROTOCOL: String = "AUTO_LAST_SUCCESS_PROTOCOL"
         private const val USE_ALTERNATIVE_SERVER = "USE_ALTERNATIVE_SERVER"

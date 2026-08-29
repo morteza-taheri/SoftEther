@@ -110,10 +110,11 @@ class AutoModeController(
         .filter { protocol.supports(it) }
         .sortedWith(byQuality)
 
-    private suspend fun runAutoMode() {
+            private suspend fun runAutoMode() {
         val protocol = protocolProvider()
         adapter.log("[AUTO] Started")
         adapter.log("[AUTO] Protocol = ${protocol.id}")
+        adapter.log("[AUTO] Connection timeout = ${attemptTimeoutMs / 1000} seconds")
 
         val all = serverProvider()
         val servers = compatibleServers(all, protocol)
