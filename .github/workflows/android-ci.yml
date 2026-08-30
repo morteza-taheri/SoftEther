@@ -94,6 +94,7 @@ jobs:
 
       - name: Assemble Pro Release APK
         run: ./gradlew assembleProRelease
+
       - name: Bundle Pro Release AAB
         if: startsWith(github.ref, 'refs/tags/')
         run: ./gradlew :app:bundleProRelease
