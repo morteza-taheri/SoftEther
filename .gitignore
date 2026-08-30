@@ -35,3 +35,6 @@ diagnostics_report.json
 __pycache__/
 .pytest_cache/
 
+# Local release APKs (built without the CI signing key)
+release-apks/
+
