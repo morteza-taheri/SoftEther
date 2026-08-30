@@ -86,10 +86,13 @@ class DataUtil(context: Context?) {
             try {
                 val cache = Cache()
                 val calendar = Calendar.getInstance()
-                //Cache in minute get from setting
-                val cacheTime = intArrayOf(15, 30, 60, 120, 240, 480, 960)
-                val minute = cacheTime[getIntSetting(SETTING_CACHE_TIME_KEY, 0)]
-                calendar.add(Calendar.MINUTE, minute)
+                //Cache in minute get from setting; -1 = Never (far future)
+                val minute = getCacheSaveTimeMinutes()
+                if (minute < 0) {
+                    calendar.set(Calendar.YEAR, 9999)
+                } else {
+                    calendar.add(Calendar.MINUTE, minute)
+                }
                 cache.expires = calendar.time
                 val outFile = File(mContext!!.filesDir, CONNECTION_CACHE_KEY)
                 val out = FileOutputStream(outFile)
@@ -271,9 +274,30 @@ class DataUtil(context: Context?) {
         editor.apply()
     }
 
+    // Developer Mode: on = keep all diagnostic logging (default, for
+    // troubleshooting); off = suppress every collector/auto-mode log line
+    // for speed (logcat writes, logcat tap and the Auto Mode log window).
+    fun getDeveloperMode(): Boolean = getBooleanSetting(SETTING_DEVELOPER_MODE, true)
+
+    fun setDeveloperMode(enabled: Boolean) {
+        setBooleanSetting(SETTING_DEVELOPER_MODE, enabled)
+    }
+
+    // Cache Save Time: values align 1:1 with R.array.setting_cache_time;
+    // -1 means "Never" (the on-disk cache never expires on its own).
+    fun getCacheSaveTimeMinutes(): Int {
+        val minutes = intArrayOf(15, 30, 60, 120, 240, 360, 720, 1440, -1)
+        val index = getIntSetting(SETTING_CACHE_TIME_KEY, DEFAULT_CACHE_TIME_INDEX)
+        return minutes.getOrElse(index) { minutes[DEFAULT_CACHE_TIME_INDEX] }
+    }
+
     companion object {
         const val TAG = "DataUtil"
         const val SETTING_CACHE_TIME_KEY: String = "SETTING_CACHE_TIME_KEY"
+        const val SETTING_DEVELOPER_MODE: String = "SETTING_DEVELOPER_MODE"
+
+        /** Index of "24 hours" in the cache-time array — the default. */
+        const val DEFAULT_CACHE_TIME_INDEX = 7
         const val SETTING_HIDE_OPERATOR_MESSAGE_COUNT: String =
             "SETTING_HIDE_OPERATOR_MESSAGE_COUNT"
         const val USER_ALLOWED_VPN: String = "USER_ALLOWED_VPN"

@@ -71,12 +71,25 @@ class SettingFragment : Fragment(), View.OnClickListener, AdapterView.OnItemSele
         val listCacheTime = resources.getStringArray(R.array.setting_cache_time)
         spinnerInit.setStringArray(
             listCacheTime,
-            listCacheTime[dataUtil.getIntSetting(DataUtil.SETTING_CACHE_TIME_KEY, 0)]
+            listCacheTime[
+                dataUtil.getIntSetting(
+                    DataUtil.SETTING_CACHE_TIME_KEY,
+                    DataUtil.DEFAULT_CACHE_TIME_INDEX,
+                )
+            ]
         )
         spinnerInit.onItemSelectedIndexListener = object : OnItemSelectedIndexListener {
             override fun onItemSelected(name: String?, index: Int) {
                 dataUtil.setIntSetting(DataUtil.SETTING_CACHE_TIME_KEY, index)
             }
+        }
+        // Developer Mode switch: default ON (troubleshooting). Turning it
+        // off suppresses every collector/auto-mode log line for speed.
+        binding.swDeveloperMode.isChecked = dataUtil.getDeveloperMode()
+        binding.swDeveloperMode.setOnCheckedChangeListener { _, isChecked ->
+            dataUtil.setDeveloperMode(isChecked)
+            vn.unlimit.vpngate.data.model.CollectorLog.enabled = isChecked
+            vn.unlimit.vpngate.automode.AutoModeLogStore.setPaused(!isChecked)
         }
         onHiddenChanged(false)
         binding.lnDns.setOnClickListener(this)

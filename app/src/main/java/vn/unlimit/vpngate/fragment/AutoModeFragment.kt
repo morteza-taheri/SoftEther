@@ -2,6 +2,9 @@ package vn.unlimit.vpngate.fragment
 
 import android.app.Activity
 import android.content.ActivityNotFoundException
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.Intent
 import android.net.VpnService
 import android.os.Bundle
@@ -13,8 +16,13 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.launch
 import vn.unlimit.vpngate.R
 import vn.unlimit.vpngate.automode.AutoModeController
+import vn.unlimit.vpngate.automode.AutoModeLogStore
 import vn.unlimit.vpngate.automode.AutoModeState
 import vn.unlimit.vpngate.databinding.FragmentAutoModeBinding
 import vn.unlimit.vpngate.viewmodels.AutoModeViewModel
@@ -23,6 +31,10 @@ import vn.unlimit.vpngate.viewmodels.AutoModeViewModel
  * Auto Mode screen (§2/§3): a single dynamic button across the four
  * states plus live server info and attempt progress. UI only renders
  * [AutoModeState]; all logic lives in the engine (§20).
+ *
+ * Also hosts the live module log window (Copy/Clear) showing the real
+ * output of the protocol module that Auto Mode is driving, and the
+ * Try next server button.
  */
 class AutoModeFragment : Fragment() {
 
@@ -61,7 +73,43 @@ class AutoModeFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         binding.btnAutoToggle.setOnClickListener { startAutoModeOrRequestPermission() }
+        binding.btnAutoNextServer.setOnClickListener { viewModel.tryNextServer() }
+        binding.btnAutoLogCopy.setOnClickListener { copyLog() }
+        binding.btnAutoLogClear.setOnClickListener { AutoModeLogStore.clear() }
         viewModel.state.observe(viewLifecycleOwner) { render(it) }
+
+        // Live module log window: re-render whenever the store changes
+        // (module output + AUTO lines), filtered by the protocol in use.
+        // Hidden entirely when Developer Mode is off (all logs suppressed).
+        val developerMode = viewModel.dataUtil.getDeveloperMode()
+        binding.root.findViewById<View>(R.id.ln_auto_mode_log_panel)?.visibility =
+            if (developerMode) View.VISIBLE else View.GONE
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                AutoModeLogStore.lines.collect { renderLog() }
+            }
+        }
+    }
+
+    private fun copyLog() {
+        val text = AutoModeLogStore.asText()
+        if (text.isEmpty()) return
+        val clipboard =
+            requireContext().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        clipboard.setPrimaryClip(ClipData.newPlainText("AutoModeLog", text))
+        Toast.makeText(requireContext(), R.string.auto_mode_log_copied, Toast.LENGTH_SHORT).show()
+    }
+
+    private fun renderLog() {
+        val binding = _binding ?: return
+        val protocol = when (val s = viewModel.state.value) {
+            is AutoModeState.Connecting -> s.protocol
+            is AutoModeState.Connected -> s.protocol
+            else -> null
+        }
+        binding.txtAutoLog.text = AutoModeLogStore.filterFor(protocol)
+            .joinToString("\n") { AutoModeLogStore.format(it) }
+        binding.scrollAutoLog.post { binding.scrollAutoLog.fullScroll(View.FOCUS_DOWN) }
     }
 
     /**
@@ -101,6 +149,7 @@ class AutoModeFragment : Fragment() {
                     color = R.color.colorAutoDisconnected,
                     progressVisible = false,
                 )
+                binding.btnAutoNextServer.visibility = View.GONE
                 binding.txtAutoState.setText(R.string.auto_mode_state_disconnected)
                 binding.txtAutoProgress.visibility = View.GONE
                 binding.lnAutoServerInfo.visibility = View.GONE
@@ -113,6 +162,7 @@ class AutoModeFragment : Fragment() {
                     color = R.color.colorAutoConnecting,
                     progressVisible = true,
                 )
+                binding.btnAutoNextServer.visibility = View.VISIBLE
                 binding.txtAutoState.setText(R.string.auto_mode_state_connecting)
                 binding.txtAutoProgress.visibility = View.VISIBLE
                 binding.txtAutoProgress.text =
@@ -130,6 +180,7 @@ class AutoModeFragment : Fragment() {
                     color = R.color.colorAutoConnected,
                     progressVisible = false,
                 )
+                binding.btnAutoNextServer.visibility = View.GONE
                 binding.txtAutoState.setText(R.string.auto_mode_state_connected)
                 binding.txtAutoProgress.visibility = View.GONE
                 binding.lnAutoServerInfo.visibility = View.VISIBLE
@@ -143,6 +194,7 @@ class AutoModeFragment : Fragment() {
                     color = R.color.colorAutoDisconnected,
                     progressVisible = false,
                 )
+                binding.btnAutoNextServer.visibility = View.GONE
                 binding.txtAutoState.setText(R.string.auto_mode_state_error)
                 binding.txtAutoProgress.visibility = View.GONE
                 binding.lnAutoServerInfo.visibility = View.GONE

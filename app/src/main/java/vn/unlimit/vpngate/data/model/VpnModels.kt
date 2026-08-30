@@ -23,10 +23,22 @@ object VpnProtocolNames {
     val ALL = listOf(SOFTETHER, OPENVPN, L2TP_IPSEC, SSTP)
 }
 
-/** Pluggable sink so unit tests (JVM) and the app (Logcat) both work. */
+/**
+ * Pluggable sink so unit tests (JVM) and the app (Logcat) both work.
+ *
+ * Developer Mode gate (Settings): when disabled, every collector log call
+ * becomes a no-op — no string building, no logcat writes, no logcat tap —
+ * to keep the app fast. Default is ON for troubleshooting.
+ */
 object CollectorLog {
     var sink: (String) -> Unit = { println(it) }
-    fun d(message: String) = sink(message)
+
+    @Volatile
+    var enabled: Boolean = true
+
+    fun d(message: String) {
+        if (enabled) sink(message)
+    }
 }
 
 /**

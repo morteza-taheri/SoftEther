@@ -85,16 +85,46 @@ class AndroidConnectionAdapter(
 
     override suspend fun awaitTunnel(protocol: AutoModeProtocol, timeoutMs: Long): Boolean {
         val deferred = CompletableDeferred<Boolean>()
+        activeTunnelWait = deferred
         TunnelStateWatcher.beginAttempt(protocol) { deferred.complete(true) }
         try {
             return withTimeoutOrNull(timeoutMs) { deferred.await() } ?: false
         } finally {
+            activeTunnelWait = null
             TunnelStateWatcher.endAttempt()
         }
     }
 
+    /**
+     * Interrupt the in-flight attempt for the Try next server button:
+     * complete the tunnel wait negatively and tear down the half-open
+     * service connection so the controller can move on immediately.
+     */
+    fun skipCurrent() {
+        activeTunnelWait?.complete(false)
+        val protocol = currentProtocol
+        if (protocol == null) return
+        android.os.Handler(android.os.Looper.getMainLooper()).post {
+            when (protocol) {
+                AutoModeProtocol.SOFTETHER_TCP, AutoModeProtocol.SOFTETHER_UDP ->
+                    startService(SoftEtherVpnService.ACTION_DISCONNECT, SoftEtherVpnService::class.java)
+                AutoModeProtocol.OPENVPN_TCP, AutoModeProtocol.OPENVPN_UDP -> {
+                    ProfileManager.setConntectedVpnProfileDisconnected(context)
+                    startService(OpenVPNService.DISCONNECT_VPN, OpenVPNService::class.java)
+                }
+                AutoModeProtocol.MS_SSTP ->
+                    startService(ACTION_VPN_DISCONNECT, SstpVpnService::class.java)
+                AutoModeProtocol.L2TP_IPSEC, null -> Unit
+            }
+        }
+    }
+
+    @Volatile
+    private var activeTunnelWait: CompletableDeferred<Boolean>? = null
+
     override fun log(message: String) {
         Log.d(TAG, message)
+        AutoModeLogStore.add(AutoModeLogStore.Source.AUTO, message)
     }
 
     // ---- Protocol connectors (mirror the existing manual flows) ----

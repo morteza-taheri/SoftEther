@@ -49,6 +49,13 @@ class App : Application() {
         instance = this
         dataUtil = DataUtil(this)
         isImportToOpenVPN = AppConfig.getBoolean("vpn_import_open_vpn")
+
+        // Route collector logs to logcat, gated by Developer Mode: when the
+        // user turns it off, all collector/auto-mode log lines become no-ops
+        // for speed (Settings > Developer Mode).
+        vn.unlimit.vpngate.data.model.CollectorLog.sink = { Log.d("VpnGateCollector", it) }
+        vn.unlimit.vpngate.data.model.CollectorLog.enabled = dataUtil!!.getDeveloperMode()
+        vn.unlimit.vpngate.automode.AutoModeLogStore.setPaused(!dataUtil!!.getDeveloperMode())
         // Make notification open DetailActivity
         OpenVPNService.setNotificationActivityClass(
             if (dataUtil!!.getIntSetting(

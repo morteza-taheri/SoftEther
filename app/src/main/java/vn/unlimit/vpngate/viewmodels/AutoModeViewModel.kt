@@ -29,4 +29,7 @@ class AutoModeViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun onButtonPressed() = AutoModeEngine.onButtonPressed()
+
+    /** Try next server button: skip the in-flight attempt. */
+    fun tryNextServer() = AutoModeEngine.skipToNextServer()
 }

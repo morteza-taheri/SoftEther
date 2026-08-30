@@ -4,6 +4,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -21,8 +22,10 @@ class AutoModeControllerTest {
         val logs = mutableListOf<String>()
         val failing = mutableSetOf<String>()
         val connectThrowing = mutableSetOf<String>()
+        val slow = mutableSetOf<String>()
         var delayMs: Long = 0
         var permissionMissing = false
+        private var activeWait: kotlinx.coroutines.CompletableDeferred<Boolean>? = null
 
         override suspend fun connect(candidate: AutoModeCandidate, protocol: AutoModeProtocol) {
             logs += "connect:${candidate.hostname}"
@@ -37,9 +40,28 @@ class AutoModeControllerTest {
         }
 
         override suspend fun awaitTunnel(protocol: AutoModeProtocol, timeoutMs: Long): Boolean {
+            val hostname = logs.lastOrNull { it.startsWith("connect:") }
+                ?.removePrefix("connect:") ?: return false
+            if (hostname in slow) {
+                // A hung connect: never reports a tunnel on its own; only a
+                // skip (complete(false) via skipCurrent) or the timeout ends it.
+                val deferred = kotlinx.coroutines.CompletableDeferred<Boolean>()
+                activeWait = deferred
+                try {
+                    return kotlinx.coroutines.withTimeoutOrNull(timeoutMs + 60_000) {
+                        deferred.await()
+                    } ?: false
+                } finally {
+                    activeWait = null
+                }
+            }
             if (delayMs > 0) kotlinx.coroutines.delay(delayMs)
-            val last = logs.lastOrNull { it.startsWith("connect:") } ?: return false
-            return last.removePrefix("connect:") !in failing
+            return hostname !in failing
+        }
+
+        /** Mirrors AndroidConnectionAdapter.skipCurrent(): fail the in-flight wait. */
+        fun skipCurrent() {
+            activeWait?.complete(false)
         }
 
         override fun log(message: String) {
@@ -286,5 +308,29 @@ class AutoModeControllerTest {
         assertTrue(terminal is AutoModeState.Connected)
         assertEquals("s2", (terminal as AutoModeState.Connected).hostname)
         assertEquals(2, adapter.logs.count { it.startsWith("connect:") })
+    }
+
+    // Try next server: while hung on server #1, a user skip must move the
+    // run to server #2 immediately (no full per-attempt timeout wait) and
+    // still connect successfully there.
+    @Test
+    fun skipToNextServerMovesToNextCandidateWithoutWaiting() = runBlocking {
+        adapter.slow += "s1"
+        val c = controller(servers = listOf(server("s1"), server("s2")), timeout = 60_000)
+        // Mirror the production wiring: the controller's skip signal routes
+        // to the adapter's skipCurrent (fail the in-flight tunnel wait).
+        c.setSkipSignal { adapter.skipCurrent() }
+        val skipper = CoroutineScope(Dispatchers.Default)
+        skipper.launch {
+            kotlinx.coroutines.delay(300)
+            c.skipToNextServer()    // flag first, then the signal fires skipCurrent
+        }
+        c.start()
+        val terminal = c.awaitTerminal()
+        c.setSkipSignal(null)
+        skipper.cancel()
+        assertTrue(terminal is AutoModeState.Connected)
+        assertEquals("s2", (terminal as AutoModeState.Connected).hostname)
+        assertTrue("[AUTO] Server skipped by user" in adapter.logs)
     }
 }

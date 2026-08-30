@@ -71,6 +71,31 @@ class AutoModeController(
     val isRunning: Boolean
         get() = job?.isActive == true
 
+    /**
+     * User-requested skip of the current server (Try next server button):
+     * aborts the in-flight attempt and lets the run continue with the next
+     * candidate. Idempotent and safe in every state — outside an active
+     * Connecting attempt it just logs and returns.
+     */
+    private val skipRequested = java.util.concurrent.atomic.AtomicBoolean(false)
+
+    fun skipToNextServer() {
+        if (!isRunning || _state.value !is AutoModeState.Connecting) {
+            adapter.log("[AUTO] Skip requested but no attempt in flight")
+            return
+        }
+        adapter.log("[AUTO] Skipping current server; trying next")
+        skipRequested.set(true)
+        adapterSkipSignal?.invoke()
+    }
+
+    /** Lets the adapter interrupt a blocked connect/await (e.g. cancel the service attempt). */
+    private var adapterSkipSignal: (() -> Unit)? = null
+
+    fun setSkipSignal(signal: (() -> Unit)?) {
+        adapterSkipSignal = signal
+    }
+
     fun start() {
         if (isRunning) {
             adapter.log("[AUTO] start ignored: already running")
@@ -147,6 +172,7 @@ class AutoModeController(
             attempt++
 
             adapter.log("[AUTO] Trying #$attempt ${server.hostname ?: server.ip}")
+            skipRequested.set(false)
             _state.value = AutoModeState.Connecting(
                 hostname = server.hostname,
                 ip = server.ip,
@@ -174,6 +200,15 @@ class AutoModeController(
             val connected = adapter.awaitTunnel(protocol, attemptTimeoutMs)
 
             if (!currentCoroutineContext().isActive) return // §12 stop
+
+            if (skipRequested.get()) {
+                // User pressed Try next server: clean up and move on without
+                // counting this as a terminal outcome.
+                adapter.log("[AUTO] Server skipped by user")
+                skipRequested.set(false)
+                adapter.disconnect() // §15 cleanup before next attempt
+                continue
+            }
 
             if (connected) {
                 adapter.log("[AUTO] Tunnel established")

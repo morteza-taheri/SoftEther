@@ -32,6 +32,10 @@ object AutoModeEngine {
         ensure().disconnectNow()
     }
 
+    fun skipToNextServer() {
+        ensure().skipToNextServer()
+    }
+
     fun ensure(dataUtil: DataUtil? = null, serversProvider: (suspend () -> List<AutoModeCandidate>)? = null): AutoModeController {
         controller?.let { return it }
         synchronized(this) {
@@ -39,6 +43,7 @@ object AutoModeEngine {
             val du = dataUtil ?: vn.unlimit.vpngate.App.instance!!.dataUtil!!
             val adapter = AndroidConnectionAdapter(vn.unlimit.vpngate.App.instance!!, du)
             TunnelStateWatcher.attach(vn.unlimit.vpngate.App.instance!!)
+            AutoModeModuleLogTap.attach(vn.unlimit.vpngate.App.instance!!)
                         val created = AutoModeController(
                 scope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
                 adapter = adapter,
@@ -57,6 +62,9 @@ object AutoModeEngine {
                 attemptTimeoutMs = du.getAutoModeTimeoutSeconds().toLong() * 1000,
             )
             controller = created
+            // Try next server button: interrupt the in-flight attempt via
+            // the adapter (fail the tunnel wait + tear down the service).
+            created.setSkipSignal { adapter.skipCurrent() }
             return created
         }
     }

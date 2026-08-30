@@ -45,6 +45,14 @@
             android:textColor="@android:color/white"
             android:background="@drawable/selector_red_button" />
 
+        <Button
+            android:id="@+id/btn_auto_next_server"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/auto_mode_try_next_server"
+            android:visibility="gone" />
+
         <TextView
             android:id="@+id/txt_auto_error"
             android:layout_width="match_parent"
@@ -97,6 +105,70 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:textAppearance="?android:attr/textAppearanceMedium" />
+        </LinearLayout>
+
+        <!-- Live module log window: the real output of the connecting
+             protocol's module (SoftEther / OpenVPN / SSTP) plus the Auto
+             Mode lines, with copy and clear actions. Hidden when
+             Developer Mode is off. -->
+        <LinearLayout
+            android:id="@+id/ln_auto_mode_log_panel"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:orientation="vertical">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/auto_mode_log_title"
+                    android:textAppearance="?android:attr/textAppearanceMedium" />
+
+                <Button
+                    android:id="@+id/btn_auto_log_copy"
+                    style="?android:attr/borderlessButtonStyle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:minWidth="0dp"
+                    android:text="@string/auto_mode_log_copy"
+                    android:textAllCaps="false" />
+
+                <Button
+                    android:id="@+id/btn_auto_log_clear"
+                    style="?android:attr/borderlessButtonStyle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:minWidth="0dp"
+                    android:text="@string/auto_mode_log_clear"
+                    android:textAllCaps="false" />
+            </LinearLayout>
+
+            <ScrollView
+                android:id="@+id/scroll_auto_log"
+                android:layout_width="match_parent"
+                android:layout_height="240dp"
+                android:layout_marginTop="4dp"
+                android:background="@drawable/log_panel_background"
+                android:fillViewport="true">
+
+                <TextView
+                    android:id="@+id/txt_auto_log"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="monospace"
+                    android:gravity="bottom"
+                    android:padding="6dp"
+                    android:textColor="?android:attr/textColorPrimary"
+                    android:textIsSelectable="true"
+                    android:textSize="11sp" />
+            </ScrollView>
         </LinearLayout>
     </LinearLayout>
 </androidx.core.widget.NestedScrollView>

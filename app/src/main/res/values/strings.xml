@@ -89,7 +89,11 @@
         <item>4 hours</item>
         <item>6 hours</item>
         <item>12 hours</item>
+        <item>24 hours</item>
+        <item>Never</item>
     </string-array>
+    <string name="setting_developer_mode_label">Developer Mode (logging)</string>
+    <string name="setting_developer_mode_summary">Keep diagnostic logs enabled for troubleshooting. Turn off for maximum speed.</string>
     <string name="press_back_again_to_exit">Please click BACK again to exit</string>
     <!-- Detail -->
     <string name="total_user">Total user</string>
@@ -219,6 +223,11 @@
     <string name="auto_mode_error_no_server">Could not connect to any available server.</string>
     <string name="auto_mode_error_generic">Auto Mode failed. Tap to try again.</string>
     <string name="auto_mode_error_vpn_permission">VPN permission is required for Auto Mode. Please allow it and try again.</string>
+    <string name="auto_mode_try_next_server">Try next server</string>
+    <string name="auto_mode_log_title">Log</string>
+    <string name="auto_mode_log_copy">Copy</string>
+    <string name="auto_mode_log_clear">Clear</string>
+    <string name="auto_mode_log_copied">Log copied to clipboard</string>
     <string name="title_home">Home</string>
     <string name="title_servers">Servers</string>
     <string name="title_free_server">Free Server</string>

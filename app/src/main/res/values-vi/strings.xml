@@ -79,7 +79,11 @@
         <item>4 giờ</item>
         <item>6 giờ</item>
         <item>12 giờ</item>
+        <item>24 giờ</item>
+        <item>Không bao giờ</item>
     </string-array>
+    <string name="setting_developer_mode_label">Chế độ nhà phát triển (nhật ký)</string>
+    <string name="setting_developer_mode_summary">Giữ nhật ký chẩn đoán bật để khắc phục sự cố. Tắt để có tốc độ tối đa.</string>
     <string name="press_back_again_to_exit">Bấm quay lại lần nữa để thoát</string>
     <!-- Detail -->
     <string name="total_user">Tổng người dùng</string>
@@ -187,6 +191,11 @@
     <string name="auto_mode_error_no_server">Không thể kết nối tới bất kỳ máy chủ khả dụng nào.</string>
     <string name="auto_mode_error_generic">Chế độ tự động thất bại. Chạm để thử lại.</string>
     <string name="auto_mode_error_vpn_permission">Chế độ tự động cần quyền VPN. Vui lòng cho phép và thử lại.</string>
+    <string name="auto_mode_try_next_server">Thử máy chủ tiếp theo</string>
+    <string name="auto_mode_log_title">Nhật ký</string>
+    <string name="auto_mode_log_copy">Sao chép</string>
+    <string name="auto_mode_log_clear">Xóa</string>
+    <string name="auto_mode_log_copied">Đã sao chép nhật ký</string>
     <string name="title_home">Home</string>
     <string name="title_servers">Máy chủ</string>
     <string name="title_free_server">Server miễn phí</string>
