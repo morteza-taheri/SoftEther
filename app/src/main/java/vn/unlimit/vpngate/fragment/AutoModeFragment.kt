@@ -1,9 +1,15 @@
 package vn.unlimit.vpngate.fragment
 
+import android.app.Activity
+import android.content.ActivityNotFoundException
+import android.content.Intent
+import android.net.VpnService
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
@@ -24,6 +30,25 @@ class AutoModeFragment : Fragment() {
     private val binding get() = _binding!!
     private val viewModel: AutoModeViewModel by activityViewModels()
 
+    /**
+     * The OS VPN permission must be granted BEFORE Auto Mode starts —
+     * the connection dialog cannot be shown from a background connect
+     * attempt. Mirrors the manual flows (DetailActivity/StatusFragment):
+     * launch the system dialog, start Auto Mode only after RESULT_OK.
+     */
+    private val vpnPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == Activity.RESULT_OK) {
+                viewModel.onButtonPressed()
+            } else {
+                Toast.makeText(
+                    requireContext(),
+                    R.string.auto_mode_error_vpn_permission,
+                    Toast.LENGTH_LONG,
+                ).show()
+            }
+        }
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -35,8 +60,32 @@ class AutoModeFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        binding.btnAutoToggle.setOnClickListener { viewModel.onButtonPressed() }
+        binding.btnAutoToggle.setOnClickListener { startAutoModeOrRequestPermission() }
         viewModel.state.observe(viewLifecycleOwner) { render(it) }
+    }
+
+    /**
+     * Pressing while Disconnected/Error starts a run; Connecting stops
+     * it; Connected disconnects. Only the START path may need the VPN
+     * permission dialog first (§12 stop must never be blocked by it).
+     */
+    private fun startAutoModeOrRequestPermission() {
+        val state = viewModel.state.value
+        val isStart = state is AutoModeState.Disconnected || state is AutoModeState.Error
+        if (!isStart) {
+            viewModel.onButtonPressed()
+            return
+        }
+        try {
+            val prepareIntent = VpnService.prepare(requireContext())
+            if (prepareIntent == null) {
+                viewModel.onButtonPressed()
+            } else {
+                vpnPermissionLauncher.launch(prepareIntent)
+            }
+        } catch (e: ActivityNotFoundException) {
+            Toast.makeText(requireContext(), R.string.auto_mode_error_vpn_permission, Toast.LENGTH_LONG).show()
+        }
     }
 
     override fun onDestroyView() {
@@ -99,10 +148,12 @@ class AutoModeFragment : Fragment() {
                 binding.lnAutoServerInfo.visibility = View.GONE
                 binding.txtAutoError.visibility = View.VISIBLE
                 binding.txtAutoError.setText(
-                    if (state.message == AutoModeController.ERROR_NO_SERVER)
-                        R.string.auto_mode_error_no_server
-                    else
-                        R.string.auto_mode_error_generic
+                    when (state.message) {
+                        AutoModeController.ERROR_NO_SERVER -> R.string.auto_mode_error_no_server
+                        AutoModeController.ERROR_VPN_PERMISSION ->
+                            R.string.auto_mode_error_vpn_permission
+                        else -> R.string.auto_mode_error_generic
+                    }
                 )
             }
         }

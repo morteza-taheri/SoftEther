@@ -51,7 +51,15 @@ class AutoModeController(
     companion object {
         const val DEFAULT_ATTEMPT_TIMEOUT_MS = 25_000L
         const val ERROR_NO_SERVER = "no_compatible_server"
+        const val ERROR_VPN_PERMISSION = "vpn_permission_missing"
     }
+
+    /**
+     * Raised by the connection adapter when the OS-level VPN permission
+     * is not granted — retrying other servers is pointless, the run must
+     * stop with a dedicated error (Auto Mode §12/§18).
+     */
+    class VpnPermissionMissingException : RuntimeException("VPN permission not granted")
 
     private val _state = MutableStateFlow<AutoModeState>(AutoModeState.Disconnected)
     val state: StateFlow<AutoModeState> = _state
@@ -149,7 +157,20 @@ class AutoModeController(
                 total = servers.size,
             )
 
-            adapter.connect(server, protocol)
+            try {
+                adapter.connect(server, protocol)
+            } catch (e: VpnPermissionMissingException) {
+                // Without the OS VPN permission no server can ever connect.
+                adapter.log("[AUTO] VPN permission missing; stopping Auto Mode")
+                adapter.disconnect()
+                _state.value = AutoModeState.Error(ERROR_VPN_PERMISSION)
+                job = null
+                return
+            } catch (e: Exception) {
+                adapter.log("[AUTO] Connect threw ${e.javaClass.simpleName}: ${e.message}")
+                adapter.disconnect() // §15 cleanup before next attempt
+                continue
+            }
             val connected = adapter.awaitTunnel(protocol, attemptTimeoutMs)
 
             if (!currentCoroutineContext().isActive) return // §12 stop

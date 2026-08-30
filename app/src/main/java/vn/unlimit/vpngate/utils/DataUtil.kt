@@ -217,6 +217,15 @@ class DataUtil(context: Context?) {
         setIntSetting(SETTING_AUTO_MODE_TIMEOUT_SECONDS, seconds.coerceIn(5, 60))
     }
 
+    // SoftEther client concurrent TCP connections (1–8, native MAX_SE_CONNECTIONS;
+    // default 4 preserves the pre-setting runtime behavior of softether_protocol.c)
+    fun getSoftEtherMaxConnections(): Int =
+        getIntSetting(SETTING_SOFTETHER_MAX_CONNECTIONS, 4).coerceIn(1, 8)
+
+    fun setSoftEtherMaxConnections(value: Int) {
+        setIntSetting(SETTING_SOFTETHER_MAX_CONNECTIONS, value.coerceIn(1, 8))
+    }
+
     fun hasAds(): Boolean {
         // Ads have been fully removed. This always returns false.
         return false
@@ -281,6 +290,7 @@ class DataUtil(context: Context?) {
         const val SETTING_NOTIFY_SPEED: String = "SETTING_NOTIFY_SPEED"
                 const val SETTING_DEFAULT_VPN_PROTOCOL: String = "SETTING_DEFAULT_VPN_PROTOCOL"
         const val SETTING_AUTO_MODE_TIMEOUT_SECONDS: String = "SETTING_AUTO_MODE_TIMEOUT_SECONDS"
+        const val SETTING_SOFTETHER_MAX_CONNECTIONS: String = "SETTING_SOFTETHER_MAX_CONNECTIONS"
         const val AUTO_LAST_SUCCESS_HOST: String = "AUTO_LAST_SUCCESS_HOST"
         const val AUTO_LAST_SUCCESS_PROTOCOL: String = "AUTO_LAST_SUCCESS_PROTOCOL"
         private const val USE_ALTERNATIVE_SERVER = "USE_ALTERNATIVE_SERVER"

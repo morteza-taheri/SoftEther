@@ -20,10 +20,16 @@ class AutoModeControllerTest {
     private class FakeAdapter : AutoModeController.ConnectionAdapter {
         val logs = mutableListOf<String>()
         val failing = mutableSetOf<String>()
+        val connectThrowing = mutableSetOf<String>()
         var delayMs: Long = 0
+        var permissionMissing = false
 
         override suspend fun connect(candidate: AutoModeCandidate, protocol: AutoModeProtocol) {
             logs += "connect:${candidate.hostname}"
+            if (permissionMissing) throw AutoModeController.VpnPermissionMissingException()
+            if (candidate.hostname in connectThrowing) {
+                throw RuntimeException("simulated connect crash")
+            }
         }
 
         override suspend fun disconnect() {
@@ -250,5 +256,35 @@ class AutoModeControllerTest {
         val zero = server("zero", speed = 0)
         val sorted = c.compatibleServers(listOf(zero, slow, fast, fastLowPing), AutoModeProtocol.SOFTETHER_UDP)
         assertEquals(listOf("fastLowPing", "fast", "slow", "zero"), sorted.map { it.hostname })
+    }
+
+    // VPN permission missing on the first attempt must stop the whole run
+    // with the dedicated error — no pointless retries of the other servers.
+    @Test
+    fun vpnPermissionMissingStopsRunWithDedicatedError() = runBlocking {
+        adapter.permissionMissing = true
+        val c = controller(servers = listOf(server("s1"), server("s2"), server("s3")))
+        c.start()
+        val terminal = c.awaitTerminal()
+        assertTrue(terminal is AutoModeState.Error)
+        assertEquals(
+            AutoModeController.ERROR_VPN_PERMISSION,
+            (terminal as AutoModeState.Error).message,
+        )
+        assertEquals(1, adapter.logs.count { it.startsWith("connect:") })
+        assertTrue(!c.isRunning)
+    }
+
+    // A generic connect failure (non-permission) must NOT kill the run:
+    // it is one failed attempt, the next server is still tried.
+    @Test
+    fun genericConnectExceptionCountsAsFailedAttempt() = runBlocking {
+        adapter.connectThrowing += "s1"
+        val c = controller(servers = listOf(server("s1"), server("s2")))
+        c.start()
+        val terminal = c.awaitTerminal()
+        assertTrue(terminal is AutoModeState.Connected)
+        assertEquals("s2", (terminal as AutoModeState.Connected).hostname)
+        assertEquals(2, adapter.logs.count { it.startsWith("connect:") })
     }
 }

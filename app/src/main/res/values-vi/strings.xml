@@ -171,6 +171,8 @@
     <string name="auto_mode">Chế độ tự động</string>
     <string name="setting_auto_protocol_label">Giao thức VPN mặc định</string>
     <string name="setting_auto_timeout_label">Thời gian chờ kết nối chế độ tự động</string>
+    <string name="setting_softether_max_connections_label">Số kết nối SoftEther tối đa</string>
+    <string name="setting_softether_max_connections_value">%1$d kết nối</string>
     <string name="auto_mode_state_disconnected">Đã ngắt kết nối</string>
     <string name="auto_mode_state_connecting">Đang kết nối…</string>
     <string name="auto_mode_state_connected">Đã kết nối</string>
@@ -184,6 +186,7 @@
     <string name="auto_mode_server_ping">Ping: %1$d ms</string>
     <string name="auto_mode_error_no_server">Không thể kết nối tới bất kỳ máy chủ khả dụng nào.</string>
     <string name="auto_mode_error_generic">Chế độ tự động thất bại. Chạm để thử lại.</string>
+    <string name="auto_mode_error_vpn_permission">Chế độ tự động cần quyền VPN. Vui lòng cho phép và thử lại.</string>
     <string name="title_home">Home</string>
     <string name="title_servers">Máy chủ</string>
     <string name="title_free_server">Server miễn phí</string>

@@ -61,10 +61,12 @@ class SettingFragment : Fragment(), View.OnClickListener, AdapterView.OnItemSele
         binding.lnUdp.setOnClickListener(this)
         binding.swUdp.setChecked(dataUtil.getBooleanSetting(DataUtil.INCLUDE_UDP_SERVER, true))
         binding.swUdp.setOnCheckedChangeListener(this)
-                binding.lnAutoProtocol.setOnClickListener(this)
+        binding.lnAutoProtocol.setOnClickListener(this)
         updateAutoProtocolLabel()
         binding.lnAutoTimeout.setOnClickListener(this)
         updateAutoTimeoutLabel()
+        binding.lnSoftetherMaxConnections.setOnClickListener(this)
+        updateSoftEtherMaxConnectionsLabel()
         val spinnerInit = SpinnerInit(context, binding.spinCacheTime)
         val listCacheTime = resources.getStringArray(R.array.setting_cache_time)
         spinnerInit.setStringArray(
@@ -244,6 +246,10 @@ class SettingFragment : Fragment(), View.OnClickListener, AdapterView.OnItemSele
             showAutoTimeoutPicker()
             return
         }
+        if (view == binding.lnSoftetherMaxConnections) {
+            showSoftEtherMaxConnectionsPicker()
+            return
+        }
         when(view) {
             binding.btnClearCache -> clearListServerCache(true)
             binding.lnBlockAds -> binding.swBlockAds.isChecked = !binding.swBlockAds.isChecked
@@ -303,6 +309,29 @@ class SettingFragment : Fragment(), View.OnClickListener, AdapterView.OnItemSele
     private fun updateAutoTimeoutLabel() {
         val seconds = dataUtil.getAutoModeTimeoutSeconds()
         binding.txtAutoTimeoutValue.text = "$seconds seconds"
+    }
+
+    /** SoftEther client concurrent TCP connections picker (1–8, native MAX_SE_CONNECTIONS). */
+    private fun showSoftEtherMaxConnectionsPicker() {
+        val values = intArrayOf(1, 2, 3, 4, 5, 6, 8)
+        val current = dataUtil.getSoftEtherMaxConnections()
+        val labels = values.map { getString(R.string.setting_softether_max_connections_value, it) }.toTypedArray()
+        val checked = values.indexOf(current).let { if (it < 0) values.indexOf(4) else it }
+        androidx.appcompat.app.AlertDialog.Builder(requireContext())
+            .setTitle(R.string.setting_softether_max_connections_label)
+            .setSingleChoiceItems(labels, checked) { dialog, which ->
+                dataUtil.setSoftEtherMaxConnections(values[which])
+                updateSoftEtherMaxConnectionsLabel()
+                dialog.dismiss()
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun updateSoftEtherMaxConnectionsLabel() {
+        val current = dataUtil.getSoftEtherMaxConnections()
+        binding.txtSoftetherMaxConnectionsValue.text =
+            getString(R.string.setting_softether_max_connections_value, current)
     }
 
     private fun hideKeyBroad() {

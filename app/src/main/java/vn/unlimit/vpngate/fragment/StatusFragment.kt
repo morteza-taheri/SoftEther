@@ -785,7 +785,8 @@ class StatusFragment : Fragment(), View.OnClickListener, VpnStatus.StateListener
             udpOnly = isUdpOnly,
             clientProductName = if (BuildConfig.FLAVOR == "pro") "VPN Gate Connector Pro" else "VPN Gate Connector",
             clientVersion = BuildConfig.VERSION_NAME,
-            clientBuild = BuildConfig.VERSION_CODE
+            clientBuild = BuildConfig.VERSION_CODE,
+            maxConnections = dataUtil!!.getSoftEtherMaxConnections()
         )
 
         // Set notification target activity

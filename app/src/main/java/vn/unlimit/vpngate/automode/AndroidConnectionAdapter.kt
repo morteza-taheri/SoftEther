@@ -103,7 +103,7 @@ class AndroidConnectionAdapter(
         val vpnIntent = VpnService.prepare(context)
         if (vpnIntent != null) {
             Log.w(TAG, "VPN permission not granted; cannot connect in background")
-            return
+            throw AutoModeController.VpnPermissionMissingException()
         }
 
         val isUdpOnly = conn.isUdpOnly
@@ -135,6 +135,7 @@ class AndroidConnectionAdapter(
             clientProductName = if (BuildConfig.FLAVOR == "pro") "VPN Gate Connector Pro" else "VPN Gate Connector",
             clientVersion = BuildConfig.VERSION_NAME,
             clientBuild = BuildConfig.VERSION_CODE,
+            maxConnections = dataUtil.getSoftEtherMaxConnections(),
         )
         SoftEtherVpnService.notificationTargetActivity =
             vn.unlimit.vpngate.activities.MainActivity::class.java
@@ -151,6 +152,10 @@ class AndroidConnectionAdapter(
     }
 
     private fun connectOpenVpn(conn: VPNGateConnection, useUdp: Boolean) {
+        if (VpnService.prepare(context) != null) {
+            Log.w(TAG, "VPN permission not granted; cannot connect in background")
+            throw AutoModeController.VpnPermissionMissingException()
+        }
         val data = if (useUdp) conn.openVpnConfigDataUdp else conn.openVpnConfigData
         if (data.isNullOrEmpty()) {
             Log.w(TAG, "No OpenVPN config payload for ${conn.hostName}")
@@ -180,6 +185,10 @@ class AndroidConnectionAdapter(
     }
 
     private fun connectSstp(conn: VPNGateConnection) {
+        if (VpnService.prepare(context) != null) {
+            Log.w(TAG, "VPN permission not granted; cannot connect in background")
+            throw AutoModeController.VpnPermissionMissingException()
+        }
         val prefs = PreferenceManager.getDefaultSharedPreferences(context)
         prefs.edit()
             .putString(OscPrefKey.HOME_HOSTNAME.toString(), conn.calculateHostName)
