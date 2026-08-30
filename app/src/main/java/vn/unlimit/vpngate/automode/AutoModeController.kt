@@ -64,6 +64,21 @@ class AutoModeController(
     private val _state = MutableStateFlow<AutoModeState>(AutoModeState.Disconnected)
     val state: StateFlow<AutoModeState> = _state
 
+    /**
+     * Optional UI-side hook fired on every state transition (used by the
+     * engine to mirror the state into the status notification). Kept as a
+     * plain callback so the controller stays JVM-unit-testable.
+     */
+    var onStateChange: ((AutoModeState) -> Unit)? = null
+        set(value) {
+            field = value
+        }
+
+    private fun setState(state: AutoModeState) {
+        _state.value = state
+        onStateChange?.invoke(state)
+    }
+
     /** §13 single-job guard. */
     var job: Job? = null
         private set
@@ -72,21 +87,28 @@ class AutoModeController(
         get() = job?.isActive == true
 
     /**
-     * User-requested skip of the current server (Try next server button):
-     * aborts the in-flight attempt and lets the run continue with the next
-     * candidate. Idempotent and safe in every state — outside an active
-     * Connecting attempt it just logs and returns.
+     * User-requested skip of the current server (Try next server button).
+     * - While Connecting: aborts the in-flight attempt and moves on.
+     * - While Connected (the run is done but the connected watcher is
+     *   armed): disconnects the live tunnel and starts a fresh run over
+     *   the remaining candidates.
+     * Outside a live run it just logs and returns.
      */
     private val skipRequested = java.util.concurrent.atomic.AtomicBoolean(false)
 
     fun skipToNextServer() {
-        if (!isRunning || _state.value !is AutoModeState.Connecting) {
+        val current = _state.value
+        val connecting = current is AutoModeState.Connecting && isRunning
+        val connectedArmed = current is AutoModeState.Connected && connectedWatcher?.isActive == true
+        if (!connecting && !connectedArmed) {
             adapter.log("[AUTO] Skip requested but no attempt in flight")
             return
         }
         adapter.log("[AUTO] Skipping current server; trying next")
         skipRequested.set(true)
-        adapterSkipSignal?.invoke()
+        if (connecting) {
+            adapterSkipSignal?.invoke()
+        }
     }
 
     /** Lets the adapter interrupt a blocked connect/await (e.g. cancel the service attempt). */
@@ -95,6 +117,54 @@ class AutoModeController(
     fun setSkipSignal(signal: (() -> Unit)?) {
         adapterSkipSignal = signal
     }
+
+    /**
+     * Remaining compatible candidates of the current run, from the server
+     * AFTER the currently connected one — used when the user skips a
+     * CONNECTED server to continue with the next candidates without
+     * retrying the ones already attempted.
+     */
+    @Volatile
+    private var remainingCandidates: List<AutoModeCandidate> = emptyList()
+
+    /**
+     * While CONNECTED the main run has finished; this light watcher waits
+     * for the user to press Try next server (skip flag), then tears down
+     * the tunnel and starts a fresh run over the remaining candidates.
+     */
+    private fun startConnectedWatcher(protocol: AutoModeProtocol) {
+        connectedWatcher?.cancel()
+        connectedWatcher = scope.launch {
+            while (currentCoroutineContext().isActive && !skipRequested.get()) {
+                kotlinx.coroutines.delay(300)
+            }
+            if (!currentCoroutineContext().isActive) return@launch
+            if (skipRequested.get()) {
+                skipRequested.set(false)
+                adapter.log("[AUTO] Connected server skipped by user; trying next")
+                adapter.disconnect() // §15 teardown of the live tunnel
+                val remaining = remainingCandidates
+                // Detach this watcher before starting the next run so the
+                // fresh watcher (after the next success) is not self-cancelled.
+                connectedWatcher = null
+                if (remaining.isEmpty()) {
+                    adapter.log("[AUTO] No more servers to try")
+                    setState(AutoModeState.Error(ERROR_NO_SERVER))
+                    job = null
+                } else {
+                    // Restart the loop over the remaining candidates only.
+                    overrideServers = remaining
+                    start()
+                }
+            }
+        }
+    }
+
+    /** When set, the next runAutoMode uses this candidate list instead of the provider. */
+    @Volatile
+    private var overrideServers: List<AutoModeCandidate>? = null
+
+    private var connectedWatcher: kotlinx.coroutines.Job? = null
 
     fun start() {
         if (isRunning) {
@@ -106,11 +176,14 @@ class AutoModeController(
 
     /** §12: cancel everything; the loop stops at the next suspension point. */
     fun stop() {
+        connectedWatcher?.cancel()
+        connectedWatcher = null
+        skipRequested.set(false)
         if (!isRunning) return
         adapter.log("[AUTO] User requested stop")
         job?.cancel()
         job = null
-        _state.value = AutoModeState.Disconnected
+        setState(AutoModeState.Disconnected)
     }
 
     /** §3 button semantics across the four states. */
@@ -124,6 +197,11 @@ class AutoModeController(
 
         /** §3/§29-Test10: pressing while Connected disconnects via the normal flow. */
     fun disconnectNow() {
+        // Kill the connected watcher too — the user chose to end the session,
+        // not to move to the next server.
+        connectedWatcher?.cancel()
+        connectedWatcher = null
+        skipRequested.set(false)
         if (isRunning) {
             // Cancel the active run, then clean up the tunnel.
             job?.cancel()
@@ -132,7 +210,7 @@ class AutoModeController(
         } else {
             scope.launch { adapter.disconnect() }
         }
-        _state.value = AutoModeState.Disconnected
+        setState(AutoModeState.Disconnected)
     }
 
     /** §7 filter + §8 ordering. Visible for tests. */
@@ -149,7 +227,8 @@ class AutoModeController(
         adapter.log("[AUTO] Protocol = ${protocol.id}")
         adapter.log("[AUTO] Connection timeout = ${attemptTimeoutMs / 1000} seconds")
 
-        val all = serverProvider()
+        val all = overrideServers ?: serverProvider()
+        overrideServers = null
         val servers = compatibleServers(all, protocol)
         adapter.log("[AUTO] Servers available = ${all.size}")
         adapter.log("[AUTO] Compatible servers = ${servers.size}")
@@ -157,7 +236,7 @@ class AutoModeController(
 
         if (servers.isEmpty()) {
             adapter.log("[AUTO] No compatible server found")
-            _state.value = AutoModeState.Error(ERROR_NO_SERVER)
+            setState(AutoModeState.Error(ERROR_NO_SERVER))
             return
         }
 
@@ -173,14 +252,16 @@ class AutoModeController(
 
             adapter.log("[AUTO] Trying #$attempt ${server.hostname ?: server.ip}")
             skipRequested.set(false)
-            _state.value = AutoModeState.Connecting(
-                hostname = server.hostname,
-                ip = server.ip,
-                protocol = protocol,
-                speed = server.speed,
-                ping = server.ping,
-                attempt = attempt,
-                total = servers.size,
+            setState(
+                AutoModeState.Connecting(
+                    hostname = server.hostname,
+                    ip = server.ip,
+                    protocol = protocol,
+                    speed = server.speed,
+                    ping = server.ping,
+                    attempt = attempt,
+                    total = servers.size,
+                )
             )
 
             try {
@@ -189,7 +270,7 @@ class AutoModeController(
                 // Without the OS VPN permission no server can ever connect.
                 adapter.log("[AUTO] VPN permission missing; stopping Auto Mode")
                 adapter.disconnect()
-                _state.value = AutoModeState.Error(ERROR_VPN_PERMISSION)
+                setState(AutoModeState.Error(ERROR_VPN_PERMISSION))
                 job = null
                 return
             } catch (e: Exception) {
@@ -214,13 +295,19 @@ class AutoModeController(
                 adapter.log("[AUTO] Tunnel established")
                 adapter.log("[AUTO] Connected successfully")
                 onSuccess(server, protocol)
-                _state.value = AutoModeState.Connected(
-                    hostname = server.hostname,
-                    ip = server.ip,
-                    protocol = protocol,
-                    speed = server.speed,
-                    ping = server.ping,
+                // Remember the remaining (not-yet-attempted) candidates so a
+                // user skip while connected continues with the next server.
+                remainingCandidates = servers.dropWhile { it !== server }.drop(1)
+                setState(
+                    AutoModeState.Connected(
+                        hostname = server.hostname,
+                        ip = server.ip,
+                        protocol = protocol,
+                        speed = server.speed,
+                        ping = server.ping,
+                    )
                 )
+                startConnectedWatcher(protocol)
                 return
             }
 
@@ -229,7 +316,7 @@ class AutoModeController(
         }
 
         adapter.log("[AUTO] All compatible servers failed")
-        _state.value = AutoModeState.Error(ERROR_NO_SERVER) // §18
+        setState(AutoModeState.Error(ERROR_NO_SERVER)) // §18
         job = null // terminal state: the run is over; next press restarts cleanly
     }
 

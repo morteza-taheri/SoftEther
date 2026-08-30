@@ -80,15 +80,14 @@ class AutoModeFragment : Fragment() {
 
         // Live module log window: re-render whenever the store changes
         // (module output + AUTO lines), filtered by the protocol in use.
-        // Hidden entirely when Developer Mode is off (all logs suppressed).
-        val developerMode = viewModel.dataUtil.getDeveloperMode()
-        binding.root.findViewById<View>(R.id.ln_auto_mode_log_panel)?.visibility =
-            if (developerMode) View.VISIBLE else View.GONE
+        // Panel visibility follows the Developer Mode setting live.
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 AutoModeLogStore.lines.collect { renderLog() }
             }
         }
+        renderLogPanelVisibility()
+        renderLog()
     }
 
     private fun copyLog() {
@@ -107,8 +106,12 @@ class AutoModeFragment : Fragment() {
             is AutoModeState.Connected -> s.protocol
             else -> null
         }
-        binding.txtAutoLog.text = AutoModeLogStore.filterFor(protocol)
-            .joinToString("\n") { AutoModeLogStore.format(it) }
+        val filtered = AutoModeLogStore.filterFor(protocol)
+        binding.txtAutoLog.text = if (filtered.isEmpty()) {
+            getString(R.string.auto_mode_log_empty)
+        } else {
+            filtered.joinToString("\n") { AutoModeLogStore.format(it) }
+        }
         binding.scrollAutoLog.post { binding.scrollAutoLog.fullScroll(View.FOCUS_DOWN) }
     }
 
@@ -136,6 +139,14 @@ class AutoModeFragment : Fragment() {
         }
     }
 
+    override fun onStart() {
+        super.onStart()
+        // Refresh after returning from Settings (Developer Mode may have
+        // changed while the fragment was stopped).
+        renderLogPanelVisibility()
+        renderLog()
+    }
+
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
@@ -149,7 +160,7 @@ class AutoModeFragment : Fragment() {
                     color = R.color.colorAutoDisconnected,
                     progressVisible = false,
                 )
-                binding.btnAutoNextServer.visibility = View.GONE
+                bindNextServerButton(enabled = false)
                 binding.txtAutoState.setText(R.string.auto_mode_state_disconnected)
                 binding.txtAutoProgress.visibility = View.GONE
                 binding.lnAutoServerInfo.visibility = View.GONE
@@ -162,7 +173,7 @@ class AutoModeFragment : Fragment() {
                     color = R.color.colorAutoConnecting,
                     progressVisible = true,
                 )
-                binding.btnAutoNextServer.visibility = View.VISIBLE
+                bindNextServerButton(enabled = true)
                 binding.txtAutoState.setText(R.string.auto_mode_state_connecting)
                 binding.txtAutoProgress.visibility = View.VISIBLE
                 binding.txtAutoProgress.text =
@@ -180,7 +191,7 @@ class AutoModeFragment : Fragment() {
                     color = R.color.colorAutoConnected,
                     progressVisible = false,
                 )
-                binding.btnAutoNextServer.visibility = View.GONE
+                bindNextServerButton(enabled = true)
                 binding.txtAutoState.setText(R.string.auto_mode_state_connected)
                 binding.txtAutoProgress.visibility = View.GONE
                 binding.lnAutoServerInfo.visibility = View.VISIBLE
@@ -194,7 +205,7 @@ class AutoModeFragment : Fragment() {
                     color = R.color.colorAutoDisconnected,
                     progressVisible = false,
                 )
-                binding.btnAutoNextServer.visibility = View.GONE
+                bindNextServerButton(enabled = false)
                 binding.txtAutoState.setText(R.string.auto_mode_state_error)
                 binding.txtAutoProgress.visibility = View.GONE
                 binding.lnAutoServerInfo.visibility = View.GONE
@@ -209,6 +220,21 @@ class AutoModeFragment : Fragment() {
                 )
             }
         }
+        renderLogPanelVisibility()
+        renderLog()
+    }
+
+    /** Always visible; enabled only while a run is connecting or connected. */
+    private fun bindNextServerButton(enabled: Boolean) {
+        binding.btnAutoNextServer.visibility = View.VISIBLE
+        binding.btnAutoNextServer.isEnabled = enabled
+        binding.btnAutoNextServer.alpha = if (enabled) 1f else 0.4f
+    }
+
+    /** Log panel follows the Developer Mode setting live (it can change in Settings). */
+    private fun renderLogPanelVisibility() {
+        val developerMode = viewModel.dataUtil.getDeveloperMode()
+        binding.lnAutoModeLogPanel.visibility = if (developerMode) View.VISIBLE else View.GONE
     }
 
     private fun bindButton(text: String, color: Int, progressVisible: Boolean) {

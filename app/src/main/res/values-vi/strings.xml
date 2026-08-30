@@ -195,6 +195,10 @@
     <string name="auto_mode_log_title">Nhật ký</string>
     <string name="auto_mode_log_copy">Sao chép</string>
     <string name="auto_mode_log_clear">Xóa</string>
+    <string name="auto_mode_log_empty">Nhật ký của module sẽ hiển thị ở đây khi chế độ tự động kết nối.</string>
+    <string name="auto_mode_notification_title">Chế độ tự động</string>
+    <string name="auto_mode_notification_connecting">Đang kết nối tới %1$s (%2$d/%3$d)…</string>
+    <string name="auto_mode_notification_connected">Đã kết nối tới %1$s qua %2$s</string>
     <string name="auto_mode_log_copied">Đã sao chép nhật ký</string>
     <string name="title_home">Home</string>
     <string name="title_servers">Máy chủ</string>

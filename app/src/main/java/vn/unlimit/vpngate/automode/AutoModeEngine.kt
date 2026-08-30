@@ -65,6 +65,19 @@ object AutoModeEngine {
             // Try next server button: interrupt the in-flight attempt via
             // the adapter (fail the tunnel wait + tear down the service).
             created.setSkipSignal { adapter.skipCurrent() }
+            // Mirror the Auto Mode state into the status notification.
+            val appContext = vn.unlimit.vpngate.App.instance!!.applicationContext
+            created.onStateChange = { state ->
+                when (state) {
+                    is AutoModeState.Connecting -> AutoModeNotifier.notifyConnecting(
+                        appContext, state.hostname, state.attempt, state.total,
+                    )
+                    is AutoModeState.Connected -> AutoModeNotifier.notifyConnected(
+                        appContext, state.hostname, state.protocol.id,
+                    )
+                    else -> AutoModeNotifier.clear(appContext)
+                }
+            }
             return created
         }
     }

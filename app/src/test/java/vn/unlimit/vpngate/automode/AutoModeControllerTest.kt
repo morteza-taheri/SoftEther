@@ -6,6 +6,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -332,5 +333,44 @@ class AutoModeControllerTest {
         assertTrue(terminal is AutoModeState.Connected)
         assertEquals("s2", (terminal as AutoModeState.Connected).hostname)
         assertTrue("[AUTO] Server skipped by user" in adapter.logs)
+    }
+
+    // Try next server while CONNECTED: must disconnect the live tunnel and
+    // continue the run with the next candidate (server #1 already
+    // succeeded; skipping it moves to #2).
+    @Test
+    fun skipWhileConnectedDisconnectsAndTriesNext() = runBlocking {
+        val c = controller(servers = listOf(server("s1"), server("s2")))
+        c.start()
+        // First terminal is Connected(s1): the run completed, the watcher
+        // is armed and waits for the skip flag.
+        assertTrue(c.awaitTerminal() is AutoModeState.Connected)
+
+        // User presses Try next server while connected.
+        c.skipToNextServer()
+
+        // A fresh run over the remaining candidate(s) must start and reach
+        // Connected(s2) without retrying s1.
+        val final = c.awaitNextTerminalAfterChange()
+        assertTrue(final is AutoModeState.Connected)
+        assertEquals("s2", (final as AutoModeState.Connected).hostname)
+        assertEquals(1, adapter.logs.count { it == "connect:s1" })
+        assertEquals(1, adapter.logs.count { it == "connect:s2" })
+        assertTrue("[AUTO] Connected server skipped by user; trying next" in adapter.logs)
+    }
+
+    /** Waits for a state change away from the current terminal, then the next terminal. */
+    private suspend fun AutoModeController.awaitNextTerminalAfterChange(): AutoModeState {
+        val before = state.value
+        withTimeoutOrNull(5_000) {
+            while (state.value == before) kotlinx.coroutines.delay(25)
+        }
+        while (true) {
+            val s = state.value
+            if ((s is AutoModeState.Connected || s is AutoModeState.Error) && !isRunning) {
+                return s
+            }
+            kotlinx.coroutines.delay(25)
+        }
     }
 }
