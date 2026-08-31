@@ -35,6 +35,18 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
+      - name: Apply vpnLib R8 keep-rules patch
+        # Upstream vpnLib drops VpnStatus$LogListener/LogItem during its own
+        # R8 shrink, breaking the app's module log window build. Apply the
+        # keep rules when the checked-out submodule does not have them yet.
+        run: |
+          if ! grep -q 'VpnStatus$LogListener' vpnLib/proguard-rules.pro; then
+            git apply patches/vpnlib-proguard-keep.patch
+            echo "vpnLib proguard patch applied"
+          else
+            echo "vpnLib already has the keep rules"
+          fi
+
       - name: Import GPG key and run blackbox_postdeploy
         run: |
           set -e
@@ -76,6 +88,18 @@ jobs:
 
       - name: Make gradlew executable
         run: chmod +x ./gradlew
+
+      - name: Apply vpnLib R8 keep-rules patch
+        # Upstream vpnLib drops VpnStatus$LogListener/LogItem during its own
+        # R8 shrink, breaking the app's module log window build. Apply the
+        # keep rules when the checked-out submodule does not have them yet.
+        run: |
+          if ! grep -q 'VpnStatus$LogListener' vpnLib/proguard-rules.pro; then
+            git apply patches/vpnlib-proguard-keep.patch
+            echo "vpnLib proguard patch applied"
+          else
+            echo "vpnLib already has the keep rules"
+          fi
 
       - name: Import GPG key and run blackbox_postdeploy
         run: |
