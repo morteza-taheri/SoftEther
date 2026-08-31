@@ -1,14 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
+    <!-- Android 15+ (edge-to-edge enforced): keep the modern palette but
+         avoid opaque system-bar scrims so content draws behind them and
+         the DayNight backgrounds stay responsible for contrast. -->
     <style name="AppTheme" parent="Theme.AppCompat.DayNight.DarkActionBar">
-        <!-- Customize your theme here. -->
         <item name="colorPrimary">@color/colorPrimary</item>
         <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
         <item name="colorAccent">@color/colorAccent</item>
-        <item name="backgroundColor">@color/colorPrimary</item>
+        <item name="android:colorBackground">@color/background</item>
+        <item name="backgroundColor">@color/background</item>
+        <item name="colorControlNormal">@color/colorTextSecondary</item>
+        <item name="colorControlActivated">@color/colorPrimary</item>
+        <item name="android:textColorPrimary">@color/colorTextPrimary</item>
+        <item name="android:textColorSecondary">@color/colorTextSecondary</item>
+        <item name="android:textColorHint">@color/colorTextSecondary</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="drawerArrowStyle">@style/DrawerArrowStyle</item>
-        <item name="colorControlNormal">@color/white</item>
     </style>
 
 </resources>

@@ -304,6 +304,51 @@
                     android:theme="@style/AppTheme.Setting.Line" />
             </LinearLayout>
 
+            <!-- App language (English / Persian / system) -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:theme="@style/AppTheme.Setting.Item">
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:theme="@style/AppTheme.Setting.Line" />
+
+                <RelativeLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:paddingTop="5dp"
+                    android:paddingBottom="5dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_centerVertical="true"
+                        android:text="@string/setting_language_label"
+                        android:theme="@style/label" />
+
+                    <androidx.appcompat.widget.AppCompatSpinner
+                        android:id="@+id/spin_language"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_alignParentEnd="true"
+                        android:layout_alignParentRight="true"
+                        android:layout_centerVertical="true"
+                        android:background="@color/colorAccent"
+                        android:minWidth="100dp"
+                        android:minHeight="30dp"
+                        android:popupBackground="@color/colorPrimary"
+                        android:popupElevation="3dp" />
+                </RelativeLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:theme="@style/AppTheme.Setting.Line" />
+            </LinearLayout>
+
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"

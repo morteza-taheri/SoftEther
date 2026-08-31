@@ -83,7 +83,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/l2tp_connect_add"
-                    android:textColor="#333"
+                    android:textColor="@color/colorTextPrimary"
                     android:theme="@style/AppTheme.Setting.Item" />
 
                 <RelativeLayout
@@ -153,7 +153,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/l2tp_tap_to_connect"
-                    android:textColor="#333"
+                    android:textColor="@color/colorTextPrimary"
                     android:theme="@style/AppTheme.Setting.Item" />
 
                 <ImageView

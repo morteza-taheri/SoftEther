@@ -83,6 +83,34 @@ class SettingFragment : Fragment(), View.OnClickListener, AdapterView.OnItemSele
                 dataUtil.setIntSetting(DataUtil.SETTING_CACHE_TIME_KEY, index)
             }
         }
+        // App language (system default / English / فارسی): applies
+        // AppCompatDelegate per-app locales; recreation picks up the change.
+        val languageInit = SpinnerInit(context, binding.spinLanguage)
+        val languageCodes = arrayOf("", "en", "fa")
+        val languageNames = arrayOf(
+            getString(R.string.setting_language_system),
+            "English",
+            "فارسی",
+        )
+        val currentLocale = androidx.appcompat.app.AppCompatDelegate.getApplicationLocales()
+            .toLanguageTags()
+        val currentTag = when {
+            currentLocale.startsWith("fa") -> "fa"
+            currentLocale.startsWith("en") -> "en"
+            else -> ""
+        }
+        languageInit.setStringArray(languageNames, languageNames[languageCodes.indexOf(currentTag)])
+        languageInit.onItemSelectedIndexListener = object : OnItemSelectedIndexListener {
+            override fun onItemSelected(name: String?, index: Int) {
+                val tag = languageCodes.getOrElse(index) { "" }
+                val locales = if (tag.isEmpty()) {
+                    androidx.core.os.LocaleListCompat.getEmptyLocaleList()
+                } else {
+                    androidx.core.os.LocaleListCompat.forLanguageTags(tag)
+                }
+                androidx.appcompat.app.AppCompatDelegate.setApplicationLocales(locales)
+            }
+        }
         // Developer Mode switch: default ON (troubleshooting). Turning it
         // off suppresses every collector/auto-mode log line for speed.
         binding.swDeveloperMode.isChecked = dataUtil.getDeveloperMode()
