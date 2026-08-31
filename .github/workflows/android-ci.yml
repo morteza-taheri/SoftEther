@@ -54,18 +54,24 @@ jobs:
       - name: Ensure debug keystore for unsigned forks
         # Forks do not inherit the blackbox-encrypted release keystore or
         # the GPG key, so the build falls back to the debug keystore — which
-        # the CI container does not have either. Create one when missing so
-        # the fork can still produce installable (locally-signed) artifacts.
+        # the CI container does not have. Create one in every plausible
+        # user.home (the Gradle daemon resolves /root while the runner HOME
+        # is /github/home) so the fork can still produce installable
+        # (locally-signed) artifacts.
         if: ${{ ! env.GPG_PRIVATE_KEY }}
         run: |
-          mkdir -p "$HOME/.android"
-          if [ ! -f "$HOME/.android/debug.keystore" ]; then
-            keytool -genkeypair -v \
-              -keystore "$HOME/.android/debug.keystore" \
-              -storepass android -keypass android \
-              -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 \
-              -dname "CN=Android Debug,O=Android,C=US"
-          fi
+          gen() {
+            mkdir -p "$(dirname "$1")"
+            if [ ! -f "$1" ]; then
+              keytool -genkeypair -v \
+                -keystore "$1" \
+                -storepass android -keypass android \
+                -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 \
+                -dname "CN=Android Debug,O=Android,C=US"
+            fi
+          }
+          gen "$HOME/.android/debug.keystore"
+          gen "/root/.android/debug.keystore"
 
       - name: Import GPG key and run blackbox_postdeploy
         run: |
@@ -128,18 +134,24 @@ jobs:
       - name: Ensure debug keystore for unsigned forks
         # Forks do not inherit the blackbox-encrypted release keystore or
         # the GPG key, so the build falls back to the debug keystore — which
-        # the CI container does not have either. Create one when missing so
-        # the fork can still produce installable (locally-signed) artifacts.
+        # the CI container does not have. Create one in every plausible
+        # user.home (the Gradle daemon resolves /root while the runner HOME
+        # is /github/home) so the fork can still produce installable
+        # (locally-signed) artifacts.
         if: ${{ ! env.GPG_PRIVATE_KEY }}
         run: |
-          mkdir -p "$HOME/.android"
-          if [ ! -f "$HOME/.android/debug.keystore" ]; then
-            keytool -genkeypair -v \
-              -keystore "$HOME/.android/debug.keystore" \
-              -storepass android -keypass android \
-              -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 \
-              -dname "CN=Android Debug,O=Android,C=US"
-          fi
+          gen() {
+            mkdir -p "$(dirname "$1")"
+            if [ ! -f "$1" ]; then
+              keytool -genkeypair -v \
+                -keystore "$1" \
+                -storepass android -keypass android \
+                -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 \
+                -dname "CN=Android Debug,O=Android,C=US"
+            fi
+          }
+          gen "$HOME/.android/debug.keystore"
+          gen "/root/.android/debug.keystore"
 
       - name: Import GPG key and run blackbox_postdeploy
         run: |
