@@ -51,6 +51,22 @@ jobs:
             echo "vpnLib already has the keep rules"
           fi
 
+      - name: Ensure debug keystore for unsigned forks
+        # Forks do not inherit the blackbox-encrypted release keystore or
+        # the GPG key, so the build falls back to the debug keystore — which
+        # the CI container does not have either. Create one when missing so
+        # the fork can still produce installable (locally-signed) artifacts.
+        if: ${{ ! env.GPG_PRIVATE_KEY }}
+        run: |
+          mkdir -p "$HOME/.android"
+          if [ ! -f "$HOME/.android/debug.keystore" ]; then
+            keytool -genkeypair -v \
+              -keystore "$HOME/.android/debug.keystore" \
+              -storepass android -keypass android \
+              -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 \
+              -dname "CN=Android Debug,O=Android,C=US"
+          fi
+
       - name: Import GPG key and run blackbox_postdeploy
         run: |
           set -e
@@ -107,6 +123,22 @@ jobs:
             echo "vpnLib proguard keep rules appended"
           else
             echo "vpnLib already has the keep rules"
+          fi
+
+      - name: Ensure debug keystore for unsigned forks
+        # Forks do not inherit the blackbox-encrypted release keystore or
+        # the GPG key, so the build falls back to the debug keystore — which
+        # the CI container does not have either. Create one when missing so
+        # the fork can still produce installable (locally-signed) artifacts.
+        if: ${{ ! env.GPG_PRIVATE_KEY }}
+        run: |
+          mkdir -p "$HOME/.android"
+          if [ ! -f "$HOME/.android/debug.keystore" ]; then
+            keytool -genkeypair -v \
+              -keystore "$HOME/.android/debug.keystore" \
+              -storepass android -keypass android \
+              -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 \
+              -dname "CN=Android Debug,O=Android,C=US"
           fi
 
       - name: Import GPG key and run blackbox_postdeploy
