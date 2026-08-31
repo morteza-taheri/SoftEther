@@ -1,14 +1,11 @@
 --- a/proguard-rules.pro
 +++ b/proguard-rules.pro
-@@ -35,7 +35,10 @@
- -keepclassmembers class de.blinkt.openvpn.core.VPNLaunchHelper {public *;}
- -keep class de.blinkt.openvpn.core.VpnStatus$ByteCountListener
- -keep class de.blinkt.openvpn.core.VpnStatus$StateListener
+@@ -1,3 +1,7 @@
++# Keep the VpnStatus log listener interfaces used by the app's Auto Mode
++# module log window (dropped by the library's own R8 shrink otherwise).
 +-keep class de.blinkt.openvpn.core.VpnStatus$LogListener
- -keep class de.blinkt.openvpn.core.VpnStatus
- -keepclassmembers class de.blinkt.openvpn.core.VpnStatus {public *;}
 +-keep class de.blinkt.openvpn.core.LogItem
 +-keepclassmembers class de.blinkt.openvpn.core.LogItem {public *;}
- -keep class de.blinkt.openvpn.utils.**
- -keepclassmembers class de.blinkt.openvpn.utils.** { public *;}
- -keep class de.blinkt.openvpn.core.keepVPNAlive
+ # Add project specific ProGuard rules here.
+ # By default, the flags in this file are appended to flags specified
+ # in /Users/huangyifei/Library/Android/sdk/tools/proguard/proguard-android.txt

@@ -40,8 +40,8 @@ jobs:
         # R8 shrink, breaking the app's module log window build. Apply the
         # keep rules when the checked-out submodule does not have them yet.
         run: |
-          if ! grep -q 'VpnStatus$LogListener' vpnLib/proguard-rules.pro; then
-            git apply patches/vpnlib-proguard-keep.patch
+          if ! grep -q 'VpnStatus\$LogListener' vpnLib/proguard-rules.pro; then
+            git apply --whitespace=nowarn patches/vpnlib-proguard-keep.patch
             echo "vpnLib proguard patch applied"
           else
             echo "vpnLib already has the keep rules"
@@ -94,8 +94,8 @@ jobs:
         # R8 shrink, breaking the app's module log window build. Apply the
         # keep rules when the checked-out submodule does not have them yet.
         run: |
-          if ! grep -q 'VpnStatus$LogListener' vpnLib/proguard-rules.pro; then
-            git apply patches/vpnlib-proguard-keep.patch
+          if ! grep -q 'VpnStatus\$LogListener' vpnLib/proguard-rules.pro; then
+            git apply --whitespace=nowarn patches/vpnlib-proguard-keep.patch
             echo "vpnLib proguard patch applied"
           else
             echo "vpnLib already has the keep rules"
