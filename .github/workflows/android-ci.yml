@@ -36,13 +36,17 @@ jobs:
         run: chmod +x ./gradlew
 
       - name: Apply vpnLib R8 keep-rules patch
-        # Upstream vpnLib drops VpnStatus$LogListener/LogItem during its own
-        # R8 shrink, breaking the app's module log window build. Apply the
+        # Upstream vpnLib drops VpnStatus LogListener/LogItem during its own
+        # R8 shrink, breaking the app's module log window build. Append the
         # keep rules when the checked-out submodule does not have them yet.
         run: |
-          if ! grep -q 'VpnStatus\$LogListener' vpnLib/proguard-rules.pro; then
-            git apply --whitespace=nowarn patches/vpnlib-proguard-keep.patch
-            echo "vpnLib proguard patch applied"
+          if ! grep -qF 'VpnStatus$LogListener' vpnLib/proguard-rules.pro; then
+            printf '%s\n' \
+              '-keep class de.blinkt.openvpn.core.VpnStatus$LogListener' \
+              '-keep class de.blinkt.openvpn.core.LogItem' \
+              '-keepclassmembers class de.blinkt.openvpn.core.LogItem {public *;}' \
+              >> vpnLib/proguard-rules.pro
+            echo "vpnLib proguard keep rules appended"
           else
             echo "vpnLib already has the keep rules"
           fi
@@ -90,13 +94,17 @@ jobs:
         run: chmod +x ./gradlew
 
       - name: Apply vpnLib R8 keep-rules patch
-        # Upstream vpnLib drops VpnStatus$LogListener/LogItem during its own
-        # R8 shrink, breaking the app's module log window build. Apply the
+        # Upstream vpnLib drops VpnStatus LogListener/LogItem during its own
+        # R8 shrink, breaking the app's module log window build. Append the
         # keep rules when the checked-out submodule does not have them yet.
         run: |
-          if ! grep -q 'VpnStatus\$LogListener' vpnLib/proguard-rules.pro; then
-            git apply --whitespace=nowarn patches/vpnlib-proguard-keep.patch
-            echo "vpnLib proguard patch applied"
+          if ! grep -qF 'VpnStatus$LogListener' vpnLib/proguard-rules.pro; then
+            printf '%s\n' \
+              '-keep class de.blinkt.openvpn.core.VpnStatus$LogListener' \
+              '-keep class de.blinkt.openvpn.core.LogItem' \
+              '-keepclassmembers class de.blinkt.openvpn.core.LogItem {public *;}' \
+              >> vpnLib/proguard-rules.pro
+            echo "vpnLib proguard keep rules appended"
           else
             echo "vpnLib already has the keep rules"
           fi
