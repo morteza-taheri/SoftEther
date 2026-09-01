@@ -85,7 +85,7 @@ jobs:
           cd SoftEtherClient/src/main/cpp && ./build-openssl-android.sh --headers-only
 
       - name: Unit tests
-        run: ./gradlew :app:testProReleaseUnitTest
+        run: ./gradlew :app:testProDebugUnitTest
 
       - name: Assemble Pro Release APK
         run: ./gradlew assembleProRelease
