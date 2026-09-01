@@ -29,9 +29,9 @@ import java.io.InputStreamReader
 
 /**
  * Real [AutoModeController.ConnectionAdapter] driving the app's
- * existing VPN services (§27): SoftEtherVpnService, SstpVpnService
+ * existing VPN services (Â§27): SoftEtherVpnService, SstpVpnService
  * and the ics-openvpn stack. Tunnel-up detection is delegated to
- * [TunnelStateWatcher]; the wait is fully suspend/non-blocking (§11).
+ * [TunnelStateWatcher]; the wait is fully suspend/non-blocking (Â§11).
  */
 class AndroidConnectionAdapter(
     private val context: Context,
@@ -162,7 +162,7 @@ class AndroidConnectionAdapter(
             useTcp = useTcp,
             udpPort = conn.seUdpPort,
             udpOnly = isUdpOnly,
-            clientProductName = if (BuildConfig.FLAVOR == "pro") "VPN Gate Connector Pro" else "VPN Gate Connector",
+            clientProductName = "VPN Gate Connector Pro",
             clientVersion = BuildConfig.VERSION_NAME,
             clientBuild = BuildConfig.VERSION_CODE,
             maxConnections = dataUtil.getSoftEtherMaxConnections(),

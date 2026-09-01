@@ -783,7 +783,7 @@ class StatusFragment : Fragment(), View.OnClickListener, VpnStatus.StateListener
             useTcp = useTcp,
             udpPort = mVpnGateConnection!!.seUdpPort,
             udpOnly = isUdpOnly,
-            clientProductName = if (BuildConfig.FLAVOR == "pro") "VPN Gate Connector Pro" else "VPN Gate Connector",
+            clientProductName = "VPN Gate Connector Pro",
             clientVersion = BuildConfig.VERSION_NAME,
             clientBuild = BuildConfig.VERSION_CODE,
             maxConnections = dataUtil!!.getSoftEtherMaxConnections()

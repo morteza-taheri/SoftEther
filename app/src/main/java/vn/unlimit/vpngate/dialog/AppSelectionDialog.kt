@@ -1,7 +1,6 @@
 package vn.unlimit.vpngate.dialog
 
 import android.annotation.SuppressLint
-import android.app.Dialog
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -14,14 +13,27 @@ import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
-import androidx.fragment.app.DialogFragment
+import com.google.android.material.bottomsheet.BottomSheetBehavior
+import com.google.android.material.bottomsheet.BottomSheetDialog
+import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import vn.unlimit.vpngate.R
 import vn.unlimit.vpngate.adapter.AppSelectionAdapter
 import vn.unlimit.vpngate.models.ExcludedApp
 
-class AppSelectionDialog : DialogFragment() {
+/**
+ * Modern searchable app-selection sheet (2026 redesign): a Material
+ * bottom sheet with a rounded grab handle, a real search bar and a live
+ * count badge. Replaces the old centered dialog; the public API
+ * (listener + preselected apps) is unchanged so all call sites keep
+ * working.
+ */
+class AppSelectionDialog : BottomSheetDialogFragment() {
 
     private lateinit var recyclerView: RecyclerView
     private lateinit var searchInput: EditText
@@ -35,6 +47,7 @@ class AppSelectionDialog : DialogFragment() {
     private var allApps: List<ExcludedApp> = emptyList()
     private var originalExcludedApps: List<ExcludedApp> = emptyList()
     private var isLoadingCancelled = false
+    private val loadScope = CoroutineScope(Dispatchers.IO)
 
     interface AppSelectionListener {
         fun onAppsSelected(apps: List<ExcludedApp>)
@@ -48,19 +61,11 @@ class AppSelectionDialog : DialogFragment() {
         this.excludedApps = excludedApps
     }
 
-    override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
-        val dialog = super.onCreateDialog(savedInstanceState)
-        dialog.setTitle(getString(R.string.add_apps_to_exclude))
-        // Make dialog permanent - don't dismiss when tapping outside
-        dialog.setCanceledOnTouchOutside(false)
-        return dialog
-    }
-
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
         savedInstanceState: Bundle?
-    ): View? {
+    ): View {
         val view = inflater.inflate(R.layout.dialog_app_selection, container, false)
 
         recyclerView = view.findViewById(R.id.recycler_view_apps)
@@ -78,38 +83,14 @@ class AppSelectionDialog : DialogFragment() {
         return view
     }
 
-    override fun onStart() {
-        super.onStart()
-        val rootView = view ?: return
-        val dialogWidth = (resources.displayMetrics.widthPixels * REGULAR_DIALOG_WIDTH_RATIO).toInt()
-        val screenHeight = resources.displayMetrics.heightPixels
-
-        // Pre-measure the content at dialog width to decide if it fits on screen.
-        rootView.measure(
-            View.MeasureSpec.makeMeasureSpec(dialogWidth, View.MeasureSpec.EXACTLY),
-            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
-        )
-        val desiredHeight = rootView.measuredHeight
-
-        if (desiredHeight <= screenHeight) {
-            // Content fits: show at natural height with 90% width.
-            dialog?.window?.setLayout(dialogWidth, ViewGroup.LayoutParams.WRAP_CONTENT)
-        } else {
-            // Content taller than screen: go full-screen and let the list fill remaining space.
-            dialog?.window?.setLayout(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-            )
-            rootView.layoutParams = rootView.layoutParams.apply {
-                height = ViewGroup.LayoutParams.MATCH_PARENT
-            }
-            val listContainer = rootView.findViewById<FrameLayout>(R.id.list_container)
-            val lp = listContainer?.layoutParams as? LinearLayout.LayoutParams
-            if (lp != null) {
-                lp.height = 0
-                lp.weight = 1f
-                listContainer.layoutParams = lp
-            }
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        // Expand to (near) full height so the list gets maximum space,
+        // still draggable/collapsible like a modern bottom sheet.
+        (dialog as? BottomSheetDialog)?.behavior?.apply {
+            state = BottomSheetBehavior.STATE_EXPANDED
+            skipCollapsed = true
+            peekHeight = (resources.displayMetrics.heightPixels * 0.7f).toInt()
         }
     }
 
@@ -149,28 +130,22 @@ class AppSelectionDialog : DialogFragment() {
 
     @SuppressLint("NotifyDataSetChanged")
     private fun loadApps() {
-        // Show loading state
         showLoading(true)
         isLoadingCancelled = false
 
-        // Load apps on background thread
-        Thread {
+        loadScope.launch {
             try {
                 val apps = getInstalledApps()
 
-                // Check if fragment is still attached and loading hasn't been cancelled
                 if (!isLoadingCancelled && isAdded && activity != null) {
-                    requireActivity().runOnUiThread {
-                        // Double-check after getting to main thread
+                    withContext(Dispatchers.Main) {
                         if (!isLoadingCancelled && isAdded && activity != null) {
                             allApps = apps
-                            originalExcludedApps = excludedApps.toList() // Store original state
-                            // Initialize adapter with all apps and pre-selected excluded apps
+                            originalExcludedApps = excludedApps.toList()
                             appSelectionAdapter.initializeWithPreSelectedApps(apps, excludedApps)
                             updateCountLabel()
                             updateApplyButtonState()
                             showLoading(false)
-                            // Force layout refresh to fix checkbox positioning
                             recyclerView.post {
                                 appSelectionAdapter.notifyDataSetChanged()
                             }
@@ -179,10 +154,8 @@ class AppSelectionDialog : DialogFragment() {
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
-                // Check if fragment is still attached before showing error
                 if (!isLoadingCancelled && isAdded && activity != null) {
-                    requireActivity().runOnUiThread {
-                        // Double-check after getting to main thread
+                    withContext(Dispatchers.Main) {
                         if (!isLoadingCancelled && isAdded && activity != null) {
                             showLoading(false)
                             Toast.makeText(context, "Error loading apps", Toast.LENGTH_SHORT).show()
@@ -190,7 +163,7 @@ class AppSelectionDialog : DialogFragment() {
                     }
                 }
             }
-        }.start()
+        }
     }
 
     private fun filterApps(query: String) {
@@ -209,18 +182,13 @@ class AppSelectionDialog : DialogFragment() {
         if (show) {
             loadingProgress.visibility = View.VISIBLE
             recyclerView.visibility = View.GONE
-            searchInput.visibility = View.GONE
             searchInput.isEnabled = false
-            btnCancel.isEnabled = true  // Keep cancel enabled during loading
-            btnAdd.visibility = View.GONE  // Hide apply button during loading
+            btnAdd.visibility = View.GONE
         } else {
             loadingProgress.visibility = View.GONE
             recyclerView.visibility = View.VISIBLE
-            searchInput.visibility = View.VISIBLE
             searchInput.isEnabled = true
-            btnCancel.isEnabled = true
-            btnAdd.visibility = View.VISIBLE  // Show apply button after loading
-            // Apply button state will be set by updateApplyButtonState()
+            btnAdd.visibility = View.VISIBLE
         }
     }
 
@@ -230,7 +198,6 @@ class AppSelectionDialog : DialogFragment() {
         val apps = pm.getInstalledApplications(PackageManager.GET_META_DATA)
 
         return apps.filter { appInfo ->
-            // Filter out only the current app, show all system and user apps
             appInfo.packageName != requireContext().packageName
         }.map { appInfo ->
             ExcludedApp(
@@ -248,16 +215,11 @@ class AppSelectionDialog : DialogFragment() {
     private fun updateApplyButtonState() {
         val currentSelectedApps = appSelectionAdapter.getSelectedApps()
 
-        // Compare current selections with original selections
         val originalPackageNames = originalExcludedApps.map { it.packageName }.toSet()
         val currentPackageNames = currentSelectedApps.map { it.packageName }.toSet()
 
         val hasChanges = originalPackageNames != currentPackageNames
         btnAdd.isEnabled = hasChanges
         btnAdd.alpha = if (hasChanges) 1.0f else 0.5f
-    }
-
-    companion object {
-        private const val REGULAR_DIALOG_WIDTH_RATIO = 0.9f
     }
 }

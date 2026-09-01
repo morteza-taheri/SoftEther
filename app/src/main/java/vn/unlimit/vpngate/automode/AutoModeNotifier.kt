@@ -9,7 +9,6 @@ import android.content.Intent
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
-import vn.unlimit.vpngate.BuildConfig
 import vn.unlimit.vpngate.R
 
 /**
@@ -85,7 +84,4 @@ object AutoModeNotifier {
 
         nm.notify(NOTIFICATION_ID, notification)
     }
-
-    @Suppress("unused")
-    private val isPro: Boolean get() = BuildConfig.FLAVOR == "pro"
 }

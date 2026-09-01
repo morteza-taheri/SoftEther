@@ -43,4 +43,8 @@
     <color name="colorOnErrorContainer">#FECACA</color>
     <color name="colorOutline">#475569</color>
     <color name="colorShadow">#66000000</color>
+    <!-- Material3 on-colors & secondary -->
+    <color name="colorOnPrimary">#0F172A</color>
+    <color name="colorSecondary">#2DD4BF</color>
+    <color name="colorOnSecondary">#042F2E</color>
 </resources>

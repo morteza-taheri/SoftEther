@@ -498,6 +498,57 @@
 
             </LinearLayout>
 
+            <!-- Excluded apps (split tunneling): opens the modern,
+                 searchable app-selection sheet. -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:theme="@style/AppTheme.Setting.Item">
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:theme="@style/AppTheme.Setting.Line" />
+
+                <RelativeLayout
+                    android:id="@+id/ln_excluded_apps"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:paddingTop="5dp"
+                    android:paddingBottom="5dp">
+
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_centerVertical="true"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/setting_excluded_apps_label"
+                            android:theme="@style/label" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/exclude_app_description"
+                            android:theme="@style/AppTheme.Setting.SubText" />
+                    </LinearLayout>
+
+                    <TextView
+                        android:id="@+id/txt_excluded_apps_count"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_alignParentEnd="true"
+                        android:layout_alignParentRight="true"
+                        android:layout_centerVertical="true"
+                        android:theme="@style/AppTheme.Setting.SubText" />
+                </RelativeLayout>
+
+            </LinearLayout>
+
             <LinearLayout
                 android:id="@+id/ln_block_ads_wrap"
                 android:layout_width="match_parent"

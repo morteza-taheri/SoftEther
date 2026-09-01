@@ -44,4 +44,8 @@
     <color name="colorOnErrorContainer">#7F1D1D</color>
     <color name="colorOutline">#CBD5E1</color>
     <color name="colorShadow">#1A0F172A</color>
+    <!-- Material3 on-colors & secondary -->
+    <color name="colorOnPrimary">#FFFFFF</color>
+    <color name="colorSecondary">#0D9488</color>
+    <color name="colorOnSecondary">#FFFFFF</color>
 </resources>

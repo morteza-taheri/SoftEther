@@ -42,6 +42,7 @@ class SettingFragment : Fragment(), View.OnClickListener, AdapterView.OnItemSele
     private lateinit var dataUtil: DataUtil
     private lateinit var mContext: Context
     private lateinit var prefs: SharedPreferences
+    private lateinit var excludeAppsManager: vn.unlimit.vpngate.utils.ExcludeAppsManager
 
     private lateinit var binding: FragmentSettingBinding
 
@@ -61,6 +62,13 @@ class SettingFragment : Fragment(), View.OnClickListener, AdapterView.OnItemSele
         binding.lnUdp.setOnClickListener(this)
         binding.swUdp.setChecked(dataUtil.getBooleanSetting(DataUtil.INCLUDE_UDP_SERVER, true))
         binding.swUdp.setOnCheckedChangeListener(this)
+        // Excluded apps (split tunneling): opens the searchable modern
+        // selection sheet; the count badge refreshes in onResume.
+        binding.lnExcludedApps.setOnClickListener(this)
+        excludeAppsManager = vn.unlimit.vpngate.utils.ExcludeAppsManager(requireContext())
+        excludeAppsManager.updateExcludeAppsButtonText { text ->
+            binding.txtExcludedAppsCount.text = text
+        }
         binding.lnAutoProtocol.setOnClickListener(this)
         updateAutoProtocolLabel()
         binding.lnAutoTimeout.setOnClickListener(this)
@@ -248,6 +256,12 @@ class SettingFragment : Fragment(), View.OnClickListener, AdapterView.OnItemSele
 
     override fun onResume() {
         super.onResume()
+        // Refresh the excluded-apps count after returning from the sheet.
+        if (::excludeAppsManager.isInitialized) {
+            excludeAppsManager.updateExcludeAppsButtonText { text ->
+                binding.txtExcludedAppsCount.text = text
+            }
+        }
         if (App.isImportToOpenVPN) {
             binding.lnBlockAdsWrap.visibility = View.GONE
             binding.lnDnsWrap.visibility = View.GONE
@@ -289,6 +303,10 @@ class SettingFragment : Fragment(), View.OnClickListener, AdapterView.OnItemSele
         }
         if (view == binding.lnSoftetherMaxConnections) {
             showSoftEtherMaxConnectionsPicker()
+            return
+        }
+        if (view == binding.lnExcludedApps) {
+            excludeAppsManager.openExcludeAppsManager(parentFragmentManager)
             return
         }
         when(view) {

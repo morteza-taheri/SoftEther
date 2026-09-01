@@ -86,6 +86,7 @@
     <string name="setting_developer_mode_summary">Giữ nhật ký chẩn đoán bật để khắc phục sự cố. Tắt để có tốc độ tối đa.</string>
     <string name="setting_language_label">Ngôn ngữ</string>
     <string name="setting_language_system">Theo hệ thống</string>
+    <string name="setting_excluded_apps_label">Ứng dụng loại trừ</string>
     <string name="press_back_again_to_exit">Bấm quay lại lần nữa để thoát</string>
     <!-- Detail -->
     <string name="total_user">Tổng người dùng</string>

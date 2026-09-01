@@ -96,6 +96,9 @@
     <string name="setting_developer_mode_summary">Keep diagnostic logs enabled for troubleshooting. Turn off for maximum speed.</string>
     <string name="setting_language_label">Language</string>
     <string name="setting_language_system">System default</string>
+    <string name="setting_excluded_apps_label">Excluded apps</string>
+    <string name="excluded_apps_count_none">None</string>
+    <string name="excluded_apps_count">%1$d excluded</string>
     <string name="press_back_again_to_exit">Please click BACK again to exit</string>
     <!-- Detail -->
     <string name="total_user">Total user</string>

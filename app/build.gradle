@@ -29,12 +29,6 @@ android {
         // keystore so every variant can build without secrets.
         def keystoreFile = file("../keyStore/release.jks")
         if (keystoreFile.exists()) {
-            free {
-                storeFile keystoreFile
-                storePassword String.valueOf(System.getenv("SIGN_KEY_PASSWORD"))
-                keyAlias "key0"
-                keyPassword String.valueOf(System.getenv("SIGN_KEY_PASSWORD"))
-            }
             pro {
                 storeFile keystoreFile
                 storePassword String.valueOf(System.getenv("SIGN_KEY_PASSWORD"))
@@ -43,12 +37,6 @@ android {
             }
         } else {
             def debugKeystore = file("${System.getProperty('user.home')}/.android/debug.keystore")
-            free {
-                storeFile debugKeystore
-                storePassword "android"
-                keyAlias "androiddebugkey"
-                keyPassword "android"
-            }
             pro {
                 storeFile debugKeystore
                 storePassword "android"
@@ -59,14 +47,6 @@ android {
     }
     flavorDimensions = ["tier"]
     productFlavors {
-        free {
-            dimension "tier"
-            applicationId "vn.unlimit.vpngate"
-            signingConfig signingConfigs.free
-            versionCode 141
-            versionName "2.3.8"
-        }
-
         pro {
             dimension "tier"
             applicationId "vn.unlimit.vpngatepro"
@@ -89,13 +69,9 @@ android {
     }
     androidComponents {
         // Keep only the proRelease variant on non-CI machines so the IDE's
-        // Build Variants panel shows a single entry. CI (CI env var set)
-        // keeps all variants because the workflow builds freeRelease too.
+        // Build Variants panel shows a single entry.
         if (System.getenv("CI") == null) {
             beforeVariants(selector().withBuildType("debug")) { variant ->
-                variant.enabled = false
-            }
-            beforeVariants(selector().withFlavor("tier", "free")) { variant ->
                 variant.enabled = false
             }
         }
@@ -143,6 +119,7 @@ ext.glideVersion = '5.0.9'
 dependencies {
     implementation fileTree(include: ['*.jar', '*.so'], dir: 'libs')
     implementation 'androidx.appcompat:appcompat:1.8.0'
+    implementation 'com.google.android.material:material:1.13.0'
     implementation 'androidx.core:core:1.19.0'
     implementation 'androidx.browser:browser:1.10.0'
     implementation 'com.google.code.gson:gson:2.14.0'
