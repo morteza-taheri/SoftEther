@@ -27,13 +27,22 @@ android {
         // When the release keystore is not present locally (it is blackbox-
         // encrypted and only deployed on CI), fall back to the default debug
         // keystore so every variant can build without secrets.
+        // Password resolution order: SIGN_KEY_PASSWORD env var (CI) →
+        // signKeyPassword in local.properties (developer machines, never
+        // committed) → debug keystore.
         def keystoreFile = file("../keyStore/release.jks")
-        if (keystoreFile.exists()) {
+        def localProps = new Properties()
+        def localPropsFile = rootProject.file("local.properties")
+        if (localPropsFile.exists()) {
+            localPropsFile.withInputStream { localProps.load(it) }
+        }
+        def signPassword = System.getenv("SIGN_KEY_PASSWORD") ?: localProps.getProperty("signKeyPassword")
+        if (keystoreFile.exists() && signPassword != null) {
             pro {
                 storeFile keystoreFile
-                storePassword String.valueOf(System.getenv("SIGN_KEY_PASSWORD"))
+                storePassword String.valueOf(signPassword)
                 keyAlias "key_pro"
-                keyPassword String.valueOf(System.getenv("SIGN_KEY_PASSWORD"))
+                keyPassword String.valueOf(signPassword)
             }
         } else {
             def debugKeystore = file("${System.getProperty('user.home')}/.android/debug.keystore")

@@ -5,8 +5,11 @@
     android:layout_height="wrap_content"
     android:orientation="vertical">
     <LinearLayout
-        android:layout_height="250dp"
+        android:layout_height="wrap_content"
         android:layout_width="match_parent"
+        android:layout_margin="8dp"
+        android:background="@drawable/bg_card_surface"
+        android:padding="24dp"
         android:gravity="center"
         android:orientation="vertical">
 
@@ -67,8 +70,6 @@
             android:visibility="gone" />
 
     </LinearLayout>
-
-    <include layout="@layout/item_line" />
 
     <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
@@ -231,10 +232,11 @@
                 <Button
                     android:id="@+id/btn_clear_statistics"
                     android:layout_width="wrap_content"
-                    android:layout_height="40dp"
+                    android:layout_height="48dp"
                     android:layout_gravity="center"
-                    android:background="@drawable/selector_apply_button"
-                    android:padding="10dp"
+                    android:background="@drawable/bg_primary_button"
+                    android:paddingLeft="20dp"
+                    android:paddingRight="20dp"
                     android:text="@string/clear_statistics"
                     android:textAllCaps="false"
                     android:textColor="@color/colorWhite" />
