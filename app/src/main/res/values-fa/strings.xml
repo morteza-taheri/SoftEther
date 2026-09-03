@@ -93,6 +93,11 @@
     <string name="setting_developer_mode_summary">لاگ‌های تشخیصی برای عیب‌یابی روشن بمانند. برای حداکثر سرعت خاموش کنید.</string>
     <string name="setting_language_label">زبان</string>
     <string name="setting_language_system">زبان سیستم</string>
+    <string name="setting_theme_label">پوسته</string>
+    <string name="setting_theme_system">پیش‌فرض سیستم</string>
+    <string name="setting_theme_light">روشن</string>
+    <string name="setting_theme_dark">تیره</string>
+    <string name="setting_theme_subtitle">نمای برنامه را انتخاب کنید؛ سبک روشن و تیره طبق همین انتخاب اعمال می‌شود.</string>
     <string name="setting_excluded_apps_label">برنامه‌های مستثنا</string>
     <string name="excluded_apps_count_none">هیچ</string>
     <string name="excluded_apps_count">%1$d برنامه مستثنا</string>

@@ -93,10 +93,12 @@
                         android:layout_height="wrap_content"
                         android:layout_alignParentEnd="true"
                         android:layout_centerVertical="true"
-                        android:background="@color/colorAccent"
-                        android:minWidth="180dp"
-                        android:minHeight="30dp"
-                        android:popupBackground="@color/colorPrimary"
+                        android:background="@drawable/bg_spinner"
+                        android:minWidth="110dp"
+                        android:minHeight="40dp"
+                        android:paddingLeft="8dp"
+                        android:paddingRight="8dp"
+                        android:popupBackground="@color/colorSurfaceElevated"
                         android:popupElevation="3dp" />
                 </RelativeLayout>
 
@@ -336,12 +338,72 @@
                         android:layout_alignParentEnd="true"
                         android:layout_alignParentRight="true"
                         android:layout_centerVertical="true"
-                        android:background="@color/colorAccent"
-                        android:minWidth="100dp"
-                        android:minHeight="30dp"
-                        android:popupBackground="@color/colorPrimary"
+                        android:background="@drawable/bg_spinner"
+                        android:minWidth="110dp"
+                        android:minHeight="40dp"
+                        android:paddingLeft="8dp"
+                        android:paddingRight="8dp"
+                        android:popupBackground="@color/colorSurfaceElevated"
                         android:popupElevation="3dp" />
                 </RelativeLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:theme="@style/AppTheme.Setting.Line" />
+            </LinearLayout>
+<!-- App appearance (system / light / dark): applied via
+                 AppCompatDelegate.setDefaultNightMode and recreated. -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:theme="@style/AppTheme.Setting.Item">
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:theme="@style/AppTheme.Setting.Line" />
+
+                <RelativeLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:paddingTop="5dp"
+                    android:paddingBottom="5dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_centerVertical="true"
+                        android:text="@string/setting_theme_label"
+                        android:theme="@style/label" />
+
+                    <androidx.appcompat.widget.AppCompatSpinner
+                        android:id="@+id/spin_theme"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_alignParentEnd="true"
+                        android:layout_alignParentRight="true"
+                        android:layout_centerVertical="true"
+                        android:background="@drawable/bg_spinner"
+                        android:minWidth="110dp"
+                        android:minHeight="40dp"
+                        android:paddingLeft="8dp"
+                        android:paddingRight="8dp"
+                        android:popupBackground="@color/colorSurfaceElevated"
+                        android:popupElevation="6dp" />
+                </RelativeLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/setting_theme_subtitle"
+                        android:theme="@style/AppTheme.Setting.SubText" />
+                </LinearLayout>
 
                 <View
                     android:layout_width="match_parent"
@@ -375,10 +437,12 @@
                         android:layout_alignParentEnd="true"
                         android:layout_alignParentRight="true"
                         android:layout_centerVertical="true"
-                        android:background="@color/colorAccent"
-                        android:minWidth="100dp"
-                        android:minHeight="30dp"
-                        android:popupBackground="@color/colorPrimary"
+                        android:background="@drawable/bg_spinner"
+                        android:minWidth="110dp"
+                        android:minHeight="40dp"
+                        android:paddingLeft="8dp"
+                        android:paddingRight="8dp"
+                        android:popupBackground="@color/colorSurfaceElevated"
                         android:popupElevation="3dp" />
                 </RelativeLayout>
 
@@ -522,6 +586,8 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_centerVertical="true"
+                        android:layout_marginEnd="8dp"
+                        android:layout_toStartOf="@id/txt_excluded_apps_count"
                         android:orientation="vertical">
 
                         <TextView

@@ -5,6 +5,7 @@ import android.app.Application
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.room.Room
 import de.blinkt.openvpn.core.OpenVPNService
 import vn.unlimit.vpngate.activities.DetailActivity
@@ -49,6 +50,15 @@ class App : Application() {
         instance = this
         dataUtil = DataUtil(this)
         isImportToOpenVPN = AppConfig.getBoolean("vpn_import_open_vpn")
+
+        // Apply the user-selected appearance (System / Light / Dark) before any
+        // activity is created so the whole app follows Theme.Material3.DayNight.
+        val themeMode = when (dataUtil!!.getIntSetting(DataUtil.SETTING_THEME, 0)) {
+            1 -> AppCompatDelegate.MODE_NIGHT_NO
+            2 -> AppCompatDelegate.MODE_NIGHT_YES
+            else -> AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
+        }
+        AppCompatDelegate.setDefaultNightMode(themeMode)
 
         // Route collector logs to logcat, gated by Developer Mode: when the
         // user turns it off, all collector/auto-mode log lines become no-ops

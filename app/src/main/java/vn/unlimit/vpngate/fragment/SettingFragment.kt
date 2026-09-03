@@ -119,6 +119,32 @@ class SettingFragment : Fragment(), View.OnClickListener, AdapterView.OnItemSele
                 androidx.appcompat.app.AppCompatDelegate.setApplicationLocales(locales)
             }
         }
+        // App appearance (system / light / dark): applied with
+        // AppCompatDelegate night mode; the activity is recreated so the
+        // chosen light/dark theme takes effect immediately.
+        val themeInit = SpinnerInit(context, binding.spinTheme)
+        val themeNames = arrayOf(
+            getString(R.string.setting_theme_system),
+            getString(R.string.setting_theme_light),
+            getString(R.string.setting_theme_dark),
+        )
+        themeInit.setStringArray(
+            themeNames,
+            themeNames[dataUtil.getIntSetting(DataUtil.SETTING_THEME, 0).coerceIn(0, 2)]
+        )
+        themeInit.onItemSelectedIndexListener = object : OnItemSelectedIndexListener {
+            override fun onItemSelected(name: String?, index: Int) {
+                if (dataUtil.getIntSetting(DataUtil.SETTING_THEME, 0) == index) return
+                dataUtil.setIntSetting(DataUtil.SETTING_THEME, index)
+                val mode = when (index) {
+                    1 -> androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_NO
+                    2 -> androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_YES
+                    else -> androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
+                }
+                androidx.appcompat.app.AppCompatDelegate.setDefaultNightMode(mode)
+                activity?.recreate()
+            }
+        }
         // Developer Mode switch: default ON (troubleshooting). Turning it
         // off suppresses every collector/auto-mode log line for speed.
         binding.swDeveloperMode.isChecked = dataUtil.getDeveloperMode()

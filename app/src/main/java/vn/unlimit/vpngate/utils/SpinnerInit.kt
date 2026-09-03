@@ -81,7 +81,7 @@ class SpinnerInit(var mContext: Context?, private var mSpinner: AppCompatSpinner
                         if (position == selectedItem) {
                             v.setBackgroundColor(
                                 ContextCompat.getColor(
-                                    context, R.color.colorOverlay
+                                    context, R.color.colorPrimaryContainer
                                 )
                             )
                         } else {

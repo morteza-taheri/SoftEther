@@ -96,6 +96,11 @@
     <string name="setting_developer_mode_summary">Keep diagnostic logs enabled for troubleshooting. Turn off for maximum speed.</string>
     <string name="setting_language_label">Language</string>
     <string name="setting_language_system">System default</string>
+    <string name="setting_theme_label">Theme</string>
+    <string name="setting_theme_system">System default</string>
+    <string name="setting_theme_light">Light</string>
+    <string name="setting_theme_dark">Dark</string>
+    <string name="setting_theme_subtitle">Choose the app appearance. Light and Dark styles follow this theme.</string>
     <string name="setting_excluded_apps_label">Excluded apps</string>
     <string name="excluded_apps_count_none">None</string>
     <string name="excluded_apps_count">%1$d excluded</string>

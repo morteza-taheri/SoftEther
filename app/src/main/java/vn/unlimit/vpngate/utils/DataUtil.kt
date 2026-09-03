@@ -311,6 +311,7 @@ class DataUtil(context: Context?) {
         const val CUSTOM_DNS_IP_2: String = "CUSTOM_DNS_IP_2"
         const val USE_DOMAIN_TO_CONNECT: String = "USE_DOMAIN_TO_CONNECT"
         const val SETTING_STARTUP_SCREEN: String = "SETTING_STARTUP_SCREEN"
+        const val SETTING_THEME: String = "SETTING_THEME"
         const val SETTING_NOTIFY_SPEED: String = "SETTING_NOTIFY_SPEED"
                 const val SETTING_DEFAULT_VPN_PROTOCOL: String = "SETTING_DEFAULT_VPN_PROTOCOL"
         const val SETTING_AUTO_MODE_TIMEOUT_SECONDS: String = "SETTING_AUTO_MODE_TIMEOUT_SECONDS"
